@@ -2,14 +2,16 @@
 
 _Your Inner Character, Your Excellence._
 
-KINAIYA is a **UI-only prototype** for an **AI-powered reading companion** that supports Filipino learners' English reading practice and gives teachers a quick class view.
+KINAIYA is a **demo-first MVP prototype** for an **AI-powered reading companion** that supports Filipino learners' English reading practice and gives teachers a quick class view.
 
 ## Highlights
 
-- **Student flow:** join class (mock QR/code) -> diagnostic -> results -> practice + games
-- **Teacher flow:** dashboard, student profiles, DepEd/MATATAG-aligned cues (prototype copy)
-- **PAGASA features (simulated):** weather card + "Simulate PAGASA Alert" to trigger continuity-learning UX (offline pack)
-- **Handshake features (simulated):** teacher "Sync Handshake" marks offline records as synced (still local)
+- **Student flow:** join class (demo code) -> diagnostic -> results -> practice + games
+- **STT (speech-to-text):** uses the browser's built-in Web Speech API where available (falls back gracefully if unsupported)
+- **SLM (small language model):** demo "local edge inference" that maps results to teacher-friendly cues/competencies (no server calls)
+- **Teacher flow:** dashboard + quick class view with DepEd/MATATAG-aligned cues (demo copy)
+- **Continuity learning:** "PAGASA Alert" demo trigger for offline-pack UX
+- **Offline sync:** teacher "Sync Handshake" demo that marks local offline records as synced
 
 ## Run locally
 
@@ -44,5 +46,6 @@ location.reload();
 
 ## Prototype notes
 
+- Demo/presentation build: most state is local (`localStorage`) and flows are optimized for a live demo, not production.
 - No external API calls: `src/lib/kinaiyaApi.ts` intentionally throws.
 - "Offline sync" + "handshake" are local demo mechanics: `src/lib/offlineQueue.ts`, `src/lib/kinaiyaDb.ts`.

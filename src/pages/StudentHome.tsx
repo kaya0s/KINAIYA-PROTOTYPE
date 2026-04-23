@@ -250,7 +250,7 @@ const StudentHome = () => {
             exit={{ y: -100, opacity: 0 }}
             className="fixed top-0 left-0 right-0 z-50 p-4"
           >
-            <div className="rounded-[24px] bg-kinaiya-blue p-5 shadow-2xl text-white border border-white/20">
+            <div className="mx-auto max-w-[320px] rounded-[20px] bg-kinaiya-blue p-4 shadow-2xl text-white border border-white/20">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
                   <CheckCircle2 className="w-6 h-6 text-white" />
