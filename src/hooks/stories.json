@@ -1,0 +1,20 @@
+{
+  "stories": [
+    {
+      "_id": "1",
+      "title": "The Whispering Woods",
+      "author": "A.J. Quinn",
+      "story": "The trees didn't just sway; they told secrets. Elara had always heard them, but today, they were yelling...",
+      "moral": "Listen closely to the warnings of nature.",
+      "tags": ["fantasy", "short"]
+    },
+    {
+      "_id": "2",
+      "title": "The Last Byte",
+      "author": "TechTales",
+      "story": "In a world run by code, Kaelen found the last analog book. It smelled of vanilla and dust...",
+      "moral": "Preserve the old while embracing the new.",
+      "tags": ["sci-fi", "short"]
+    }
+  ]
+}

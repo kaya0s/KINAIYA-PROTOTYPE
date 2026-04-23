@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 96%;
+    --foreground: 220 20% 15%;
+
+    --card: 40 30% 98%;
+    --card-foreground: 220 20% 15%;
+
+    --popover: 40 30% 98%;
+    --popover-foreground: 220 20% 15%;
+
+    --primary: 145 45% 32%;
+    --primary-foreground: 40 33% 96%;
+
+    --secondary: 35 80% 55%;
+    --secondary-foreground: 40 33% 96%;
+
+    --muted: 40 20% 90%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 200 70% 50%;
+    --accent-foreground: 40 33% 96%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 33% 96%;
+
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    --ring: 145 45% 32%;
+
+    --radius: 1rem;
+
+    --kinaiya-gold: 40 85% 58%;
+    --kinaiya-green: 145 45% 32%;
+    --kinaiya-green-light: 145 40% 90%;
+    --kinaiya-orange: 25 90% 55%;
+    --kinaiya-blue: 200 70% 50%;
+    --kinaiya-blue-light: 200 70% 92%;
+    --kinaiya-red: 0 72% 55%;
+    --kinaiya-red-light: 0 60% 92%;
+    --kinaiya-purple: 270 50% 55%;
+    --kinaiya-purple-light: 270 50% 92%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .text-gradient-kinaiya {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--kinaiya-green)), hsl(var(--kinaiya-gold)));
+  }
+
+  .bg-gradient-kinaiya {
+    background-image: linear-gradient(135deg, hsl(var(--kinaiya-green)), hsl(var(--primary)));
+  }
+
+  .bg-gradient-warm {
+    background-image: linear-gradient(135deg, hsl(var(--kinaiya-gold)), hsl(var(--kinaiya-orange)));
+  }
+
+  .shadow-kinaiya {
+    box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.2);
+  }
+
+  .mobile-container {
+    @apply max-w-md mx-auto min-h-screen;
+  }
+}
