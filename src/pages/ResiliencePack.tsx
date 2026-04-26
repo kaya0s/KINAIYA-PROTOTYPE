@@ -1,12 +1,39 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, BookOpen, CheckCircle, Lock, Trophy, AlertCircle, Check, Mic, Download, Brain } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle, Lock, Trophy, AlertCircle, Check, Mic } from "lucide-react";
 import type { ResiliencePackResponse } from "@/lib/kinaiyaApi";
 import { getStudentFriendlyLevel } from "@/lib/kinaiyaApi";
+import goodJobImg from "@/assets/good-job.png";
 
 const RESILIENCE_PACK_KEY = "kinaiya_resilience_pack_v1";
 const MASTERY_KEY = "kinaiya_offline_mastery_v1";
+
+const getMetricTone = (value: number) => {
+  if (value >= 95) return "Excellent";
+  if (value >= 85) return "Strong";
+  if (value >= 70) return "Developing";
+  return "Needs support";
+};
+
+const normalizeMasteredDays = (value: unknown): number[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((day) => Number(day))
+    .filter((day) => Number.isFinite(day));
+};
+
+const getNextAvailableDay = (
+  pack: ResiliencePackResponse | null,
+  masteredDays: number[],
+) => {
+  if (!pack?.items?.length) return null;
+
+  const firstUnmastered = pack.items.find((item) => !masteredDays.includes(item.day));
+  if (firstUnmastered) return firstUnmastered.day;
+
+  return pack.items[pack.items.length - 1].day;
+};
 
 const ResiliencePack = () => {
   const navigate = useNavigate();
@@ -24,34 +51,28 @@ const ResiliencePack = () => {
   const [masteredDays, setMasteredDays] = useState<number[]>(() => {
     try {
       const raw = localStorage.getItem(MASTERY_KEY);
-      return raw ? JSON.parse(raw) : [];
+      return raw ? normalizeMasteredDays(JSON.parse(raw)) : [];
     } catch {
       return [];
     }
   });
 
-  const [activeDay, setActiveDay] = useState<number | null>(() => {
-    if (!pack?.items) return null;
-    try {
-      const rawMastery = localStorage.getItem(MASTERY_KEY);
-      const mastered = rawMastery ? JSON.parse(rawMastery) as number[] : [];
-      const firstUnmastered = pack.items.find((i) => !mastered.includes(i.day));
-      return firstUnmastered ? firstUnmastered.day : pack.items[0].day;
-    } catch {
-      return pack.items[0].day;
-    }
-  });
+  const [activeDay, setActiveDay] = useState<number | null>(() =>
+    getNextAvailableDay(pack, masteredDays),
+  );
 
   const [stage, setStage] = useState<"reading" | "quiz" | "analyzing" | "final_results">("reading");
   const [currentQ, setCurrentQ] = useState(0); // For sequential quiz
-  const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showPackComplete, setShowPackComplete] = useState(false);
   const [masteryFeedback, setMasteryFeedback] = useState<"success" | "fail" | null>(null);
   const [readingMetrics, setReadingMetrics] = useState<{ wcpm: number; accuracy: number; comprehensionScore: number } | null>(null);
   const [timer, setTimer] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const dayButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   const current = pack?.items?.find((i) => i.day === activeDay) ?? null;
+  const isFinalDay = Boolean(current && pack && current.day >= pack.days);
 
   // Effects
   useEffect(() => {
@@ -63,12 +84,34 @@ const ResiliencePack = () => {
   }, [activeDay]);
 
   useEffect(() => {
+    const nextAvailableDay = getNextAvailableDay(pack, masteredDays);
+    if (nextAvailableDay == null) return;
+    if (activeDay == null || masteredDays.includes(activeDay)) {
+      setActiveDay(nextAvailableDay);
+    }
+  }, [activeDay, masteredDays, pack]);
+
+  useEffect(() => {
     let interval: number;
     if (isRecording) {
       interval = window.setInterval(() => setTimer((t) => t + 1), 1000);
     }
     return () => window.clearInterval(interval);
   }, [isRecording]);
+
+  useEffect(() => {
+    if (activeDay == null) return;
+    const target = dayButtonRefs.current[activeDay];
+    if (!target) return;
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    });
+  }, [activeDay]);
 
   const handleFinishReading = () => {
     setIsRecording(false);
@@ -118,6 +161,23 @@ const ResiliencePack = () => {
     return !masteredDays.includes(day - 1);
   };
 
+  const handleSuccessContinue = () => {
+    if (isFinalDay) {
+      setShowPackComplete(true);
+      return;
+    }
+
+    setShowCelebration(true);
+    window.setTimeout(() => {
+      setShowCelebration(false);
+      if (current && pack && current.day < pack.days) {
+        setActiveDay(current.day + 1);
+        return;
+      }
+      navigate("/student");
+    }, 1800);
+  };
+
   return (
     <div className="mobile-container bg-background px-3 pb-8 min-h-screen flex flex-col">
       <div className="flex items-center gap-3 pt-6 pb-4">
@@ -160,6 +220,9 @@ const ResiliencePack = () => {
               return (
                 <button
                   key={i.day}
+                  ref={(node) => {
+                    dayButtonRefs.current[i.day] = node;
+                  }}
                   disabled={locked}
                   onClick={() => setActiveDay(i.day)}
                   className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${activeDay === i.day
@@ -370,62 +433,102 @@ const ResiliencePack = () => {
                 {/* 4. FINAL RESULTS STAGE */}
                 {stage === "final_results" && readingMetrics && (
                   <>
-                    <div className={`rounded-[32px] p-8 shadow-sm border-2 ${masteryFeedback === "success"
-                        ? "bg-kinaiya-green-light border-kinaiya-green/20 text-kinaiya-green-dark"
-                        : "bg-kinaiya-red-light border-kinaiya-red/20 text-kinaiya-red-dark"
-                      }`}>
-                      <div className="flex justify-between items-start mb-8">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Diagnostic Report</p>
-                          <h2 className="text-3xl font-black">
-                            {masteryFeedback === "success" ? "Mastery!" : "Retry Needed"}
-                          </h2>
-                        </div>
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${masteryFeedback === "success" ? "bg-kinaiya-green text-white" : "bg-kinaiya-red text-white"
-                          }`}>
-                          {masteryFeedback === "success" ? <Trophy className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+                    <div className="rounded-2xl bg-card border border-border p-5 space-y-4">
+                      <div
+                        className={`rounded-2xl border p-4 ${
+                          masteryFeedback === "success"
+                            ? "bg-kinaiya-green-light border-kinaiya-green/20"
+                            : "bg-kinaiya-red-light border-kinaiya-red/20"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                              Resilience Report
+                            </p>
+                            <h2 className="mt-1 text-2xl font-display font-black text-foreground">
+                              {masteryFeedback === "success" ? "Mastery Achieved" : "Retry Needed"}
+                            </h2>
+                            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                              {masteryFeedback === "success"
+                                ? `You completed Day ${current.day}. Your offline progress has been saved.`
+                                : "Review the passage and try the assessment again."}
+                            </p>
+                          </div>
+                          <div
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                              masteryFeedback === "success"
+                                ? "bg-kinaiya-green text-white"
+                                : "bg-kinaiya-red text-white"
+                            }`}
+                          >
+                            {masteryFeedback === "success" ? (
+                              <Trophy className="w-5 h-5" />
+                            ) : (
+                              <AlertCircle className="w-5 h-5" />
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center py-2 border-b border-current/10">
-                          <span className="text-xs font-bold opacity-70">FLUENCY (WCPM)</span>
-                          <span className="text-xl font-black">{readingMetrics.wcpm}</span>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-2xl bg-muted/50 border border-border p-4 text-center">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                            Fluency
+                          </p>
+                          <p className="mt-2 text-2xl font-black text-foreground">{readingMetrics.wcpm}</p>
+                          <p className="text-[11px] text-muted-foreground">WCPM</p>
                         </div>
-                        <div className="flex justify-between items-center py-2 border-b border-current/10">
-                          <span className="text-xs font-bold opacity-70">ACCURACY</span>
-                          <span className="text-xl font-black">{readingMetrics.accuracy}%</span>
+                        <div className="rounded-2xl bg-muted/50 border border-border p-4 text-center">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                            Accuracy
+                          </p>
+                          <p className="mt-2 text-2xl font-black text-foreground">{readingMetrics.accuracy}%</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {getMetricTone(readingMetrics.accuracy)}
+                          </p>
                         </div>
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-xs font-bold opacity-70">COMPREHENSION</span>
-                          <span className="text-xl font-black">{readingMetrics.comprehensionScore}%</span>
+                        <div className="rounded-2xl bg-muted/50 border border-border p-4 text-center">
+                          <p className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                            Comprehension
+                          </p>
+                          <p className="mt-2 text-2xl font-black text-foreground">
+                            {readingMetrics.comprehensionScore}%
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {getMetricTone(readingMetrics.comprehensionScore)}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="mt-8 pt-6 border-t border-current/10 text-xs font-medium leading-relaxed italic opacity-80">
-                        {masteryFeedback === "success"
-                          ? "Congratulations! You have completed the Day " + current.day + " bridge."
-                          : "We recommend reviewing the Higaonon passage to improve accuracy."}
+                      <div className="rounded-2xl bg-muted/50 border border-border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                            Summary
+                          </p>
+                          <span className="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                            Day {current.day}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {masteryFeedback === "success"
+                            ? "Strong reading and correct answers helped you clear this bridge. Continue with the next day."
+                            : "Take another pass through the reading and aim for steadier accuracy before moving on."}
+                        </p>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-bold text-foreground">{masteredDays.length}/{pack.days} mastered</span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="flex-1 flex flex-col justify-end pb-8">
                       {masteryFeedback === "success" ? (
                         <button
-                          onClick={() => {
-                            setShowCelebration(true);
-                            setTimeout(() => {
-                              setShowCelebration(false);
-                              if (current.day < pack.days) {
-                                setActiveDay(current.day + 1);
-                              } else {
-                                navigate("/student");
-                              }
-                            }, 1500);
-                          }}
-                          className="w-full py-5 rounded-2xl bg-kinaiya-blue text-white font-display font-black text-lg shadow-lg active:scale-[0.98] transition-all"
+                          onClick={handleSuccessContinue}
+                          className="w-full py-5 rounded-2xl bg-gradient-kinaiya text-primary-foreground font-display font-black text-lg shadow-kinaiya active:scale-[0.98] transition-transform"
                         >
-                          Unlock Next Day
+                          {isFinalDay ? "Finish Pack" : "Unlock Next Day"}
                         </button>
                       ) : (
                         <button
@@ -444,14 +547,77 @@ const ResiliencePack = () => {
 
           <AnimatePresence>
             {showCelebration && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-10">
-                <motion.div initial={{ scale: 0.5, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} className="bg-white rounded-3xl p-8 shadow-2xl text-center max-w-sm">
-                  <div className="w-20 h-20 bg-kinaiya-green rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-lg">
-                    <Trophy className="w-10 h-10" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-6"
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 28, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 16, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  className="w-full max-w-sm overflow-hidden rounded-3xl bg-card border border-border shadow-2xl"
+                >
+                  <div className="p-5 pb-2">
+                    <motion.img
+                      src={goodJobImg}
+                      alt="Good job"
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.45, delay: 0.1 }}
+                      className="mx-auto h-auto w-full max-w-[240px] object-contain"
+                    />
                   </div>
-                  <h2 className="text-2xl font-black text-foreground mb-2">Mastery Achieved!</h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed mb-6 font-medium">Your diagnostic results have been saved locally for offline sync.</p>
-                  <button onClick={() => setShowCelebration(false)} className="w-full py-4 rounded-2xl bg-kinaiya-green text-white font-bold">Keep Going</button>
+                  <div className="px-6 pb-7 pt-2 text-center">
+                    <h2 className="text-2xl font-black text-foreground">Good job!</h2>
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
+                      Day {current?.day} was completed successfully. Preparing your next step now.
+                    </p>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {showPackComplete && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-6"
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 28, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 16, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  className="w-full max-w-sm overflow-hidden rounded-3xl bg-card border border-border shadow-2xl"
+                >
+                  <div className="p-5 pb-2">
+                    <motion.img
+                      src={goodJobImg}
+                      alt="Good job"
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.45, delay: 0.1 }}
+                      className="mx-auto h-auto w-full max-w-[240px] object-contain"
+                    />
+                  </div>
+                  <div className="px-6 pb-7 pt-2 text-center">
+                    <h2 className="text-2xl font-black text-foreground">Pack completed!</h2>
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
+                      You finished all {pack?.days} days of your resilience pack. Your progress is saved and ready to sync.
+                    </p>
+                    <button
+                      onClick={() => navigate("/student")}
+                      className="mt-6 w-full py-4 rounded-2xl bg-gradient-kinaiya text-primary-foreground font-display font-black text-base shadow-kinaiya active:scale-[0.98] transition-transform"
+                    >
+                      Back to Home
+                    </button>
+                  </div>
                 </motion.div>
               </motion.div>
             )}
@@ -463,4 +629,3 @@ const ResiliencePack = () => {
 };
 
 export default ResiliencePack;
-

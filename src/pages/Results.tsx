@@ -48,22 +48,22 @@ const Results = () => {
 
   const getStandardDetail = (code: string) => {
     const details: Record<string, string> = {
-      "MATATAG L1.PHO.04":
-        "Phonological Awareness: Ability to track and produce individual sounds. Crucial for early decoding mastery.",
-      "MATATAG L1.PHO.05":
-        "Phonological Awareness: Focuses on complex sound blending, specifically consonant clusters.",
-      "MATATAG L1.DEC.02":
-        "Decoding Skills: Ability to blend phonemes into recognizable words at a Grade 1 level.",
-      "MATATAG L2.DEC.01":
-        "Complex Decoding: Recognition of high-frequency and multi-syllabic words for Grade 2.",
-      "MATATAG L1.FLU.01":
-        "Fluency: Reading with emerging speed and accuracy. Target: 40-60 WCPM.",
-      "MATATAG L1.PRO.03":
-        "Prosody: Using expression and punctuation cues to guide oral reading voice.",
+      "MATATAG G6.VOC":
+        "Vocabulary: Context Clues — Grade 6 learners use surrounding text, syntax, and word parts to infer the meaning of unfamiliar words encountered in reading passages. (MATATAG Grade 6 Curriculum)",
+      "MATATAG G6.COMP":
+        "Comprehension: Main Idea and Inference — Grade 6 learners identify the main idea, supporting details, and draw simple inferences from grade-level texts. (Phil-IRI Independent: 90% and above | MATATAG Grade 6)",
+      "MATATAG G6.WR":
+        "Word Recognition: Decoding Multi-syllabic Words — Accurate reading of multi-syllabic and content-area words at Grade 6 level. (Phil-IRI Independent: 97–100% word recognition | MATATAG Grade 6)",
+      "MATATAG G6.PHO":
+        "Phonics: Vowel Teams and Consonant Clusters — Mastery of vowel patterns, blends, and digraphs as applied in Grade 6 reading passages. (MATATAG Grade 6 Curriculum)",
+      "MATATAG G6.FLU":
+        "Fluency: Oral Reading Rate and Expression — Target: 140 WCPM with appropriate pacing, phrasing, and expression. (Phil-IRI Grade 6: Fast readers 190+ WPM, Average 151–189 WPM | MATATAG Grade 6)",
+      "MATATAG G6.GEN":
+        "General Reading Support: Grade 6 — Foundational literacy competencies aligned with MATATAG Grade 6 Curriculum and DepEd Phil-IRI Grade 6 criteria (DO 14, s. 2018).",
     };
     return (
       details[code] ||
-      "Official MATATAG Curriculum Standard for foundational literacy development."
+      "Official MATATAG Grade 6 Standard — aligned with Phil-IRI Grade 6 criteria (DO 14, s. 2018)."
     );
   };
 
@@ -80,7 +80,7 @@ const Results = () => {
     ? (rawLevel as string) === "Frustration"
       ? "Frustrational"
       : rawLevel
-    : accuracy >= 95
+    : accuracy >= 97
       ? "Independent"
       : accuracy >= 90
         ? "Instructional"
@@ -172,24 +172,24 @@ const Results = () => {
     {
       label: "Words per Minute",
       value: `${wpm}`,
-      target: "90",
-      pct: Math.min(100, Math.round((wpm / 90) * 100)),
+      target: "140",
+      pct: Math.min(100, Math.round((wpm / 140) * 100)),
       icon: TrendingUp,
       color: "text-kinaiya-blue",
     },
     {
       label: "Accuracy",
       value: `${accuracy}%`,
-      target: "95%",
-      pct: Math.round((accuracy / 95) * 100),
+      target: "97%",
+      pct: Math.min(100, Math.round((accuracy / 97) * 100)),
       icon: Target,
       color: "text-kinaiya-green",
     },
     {
       label: "Comprehension",
       value: `${comprehension}%`,
-      target: "85%",
-      pct: Math.round((comprehension / 85) * 100),
+      target: "90%",
+      pct: Math.min(100, Math.round((comprehension / 90) * 100)),
       icon: Brain,
       color: "text-kinaiya-purple",
     },
@@ -203,19 +203,22 @@ const Results = () => {
             severity: a.severity,
           }))
         : [
-            { issue: "Reading speed practice", severity: "high" as const },
             {
-              issue: "Practicing long vowel sounds",
-              severity: accuracy < 85 ? ("high" as const) : ("medium" as const),
+              issue: "Fluency: oral reading rate and expression",
+              severity: "high" as const,
             },
             {
-              issue: "Blending word sounds together",
+              issue: "Comprehension: identifying main idea and key details",
+              severity: accuracy < 90 ? ("high" as const) : ("medium" as const),
+            },
+            {
+              issue: "Decoding: multi-syllabic words and vowel patterns",
               severity: "medium" as const,
             },
             {
-              issue: "Smoothing out sentence flow",
+              issue: "Comprehension: making inferences from the passage",
               severity:
-                comprehension < 70 ? ("high" as const) : ("low" as const),
+                comprehension < 75 ? ("high" as const) : ("low" as const),
             },
           ]
       : analysis?.areas_for_improvement?.length
@@ -235,9 +238,9 @@ const Results = () => {
     analysis?.strengths?.length
       ? analysis.strengths
       : [
-          comprehension >= 70 && "Good passage comprehension",
-          accuracy >= 80 && "Consistent word recognition",
-          wpm >= 60 && "Adequate reading pace",
+          comprehension >= 90 && "Strong passage comprehension",
+          accuracy >= 97 && "Accurate word recognition",
+          wpm >= 140 && "Good oral reading rate",
         ].filter(Boolean)
   ) as string[];
 

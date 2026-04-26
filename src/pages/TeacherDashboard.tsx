@@ -2,12 +2,39 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Users, AlertTriangle, TrendingUp, BookOpen, BarChart3,
-  ChevronRight, Plus, X, Eye, FileText, Search, Copy, RotateCcw, LogOut, QrCode, CheckCircle2, Brain, Sparkles, Zap, ExternalLink, Grid, List
+  ArrowLeft,
+  Users,
+  AlertTriangle,
+  TrendingUp,
+  BookOpen,
+  BarChart3,
+  ChevronRight,
+  Plus,
+  X,
+  Eye,
+  FileText,
+  Search,
+  Copy,
+  RotateCcw,
+  LogOut,
+  QrCode,
+  CheckCircle2,
+  Brain,
+  Sparkles,
+  Zap,
+  ExternalLink,
+  Grid,
+  List,
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import heroImg from "@/assets/hero-illustration.png";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { toast } from "@/components/ui/sonner";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   addStudent,
   assignMaterialToStudent,
@@ -43,21 +70,46 @@ type Student = {
   mastery?: boolean;
 };
 
+const HANDSHAKE_TOAST_KEY = "kinaiya_teacher_handshake_complete";
+
 const levelColor = (level: string) => {
-  if (level === "Independent") return "text-kinaiya-green bg-kinaiya-green-light";
-  if (level === "Instructional") return "text-kinaiya-blue bg-kinaiya-blue-light";
+  if (level === "Independent")
+    return "text-kinaiya-green bg-kinaiya-green-light";
+  if (level === "Instructional")
+    return "text-kinaiya-blue bg-kinaiya-blue-light";
   return "text-kinaiya-red bg-kinaiya-red-light";
 };
 
 const getMatatagCode = (gap?: string | null): string => {
-  if (!gap) return "L1.GEN.01";
+  if (!gap) return "MATATAG G6.GEN";
   const g = gap.toLowerCase();
-  if (g.includes("vowel") || g.includes("phonics")) return "L1.PHO.04";
-  if (g.includes("blending") || g.includes("cluster")) return "L1.PHO.05";
-  if (g.includes("speed") || g.includes("fluency")) return "L1.FLU.01";
-  if (g.includes("comprehension")) return "L1.PRO.03";
-  if (g.includes("decoding")) return "L1.DEC.02";
-  return "L1.GEN.01";
+  if (g.includes("vocabulary") || g.includes("context clue"))
+    return "MATATAG G6.VOC";
+  if (
+    g.includes("main idea") ||
+    g.includes("inference") ||
+    g.includes("comprehension")
+  )
+    return "MATATAG G6.COMP";
+  if (
+    g.includes("fluency") ||
+    g.includes("oral reading") ||
+    g.includes("expression")
+  )
+    return "MATATAG G6.FLU";
+  if (
+    g.includes("decoding") ||
+    g.includes("multi-syllabic") ||
+    g.includes("vowel pattern")
+  )
+    return "MATATAG G6.WR";
+  if (
+    g.includes("phonics") ||
+    g.includes("vowel team") ||
+    g.includes("consonant")
+  )
+    return "MATATAG G6.PHO";
+  return "MATATAG G6.GEN";
 };
 
 const TeacherDashboard = () => {
@@ -67,8 +119,12 @@ const TeacherDashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showAddReading, setShowAddReading] = useState(false);
   const [newReadingTitle, setNewReadingTitle] = useState("");
-  const [materials, setMaterials] = useState<Array<{ id: string; title: string }>>([]);
-  const [materialMap, setMaterialMap] = useState<Map<string, string>>(new Map());
+  const [materials, setMaterials] = useState<
+    Array<{ id: string; title: string }>
+  >([]);
+  const [materialMap, setMaterialMap] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [searchFilter, setSearchFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("All");
   const [classId, setClassId] = useState<string | null>(null);
@@ -81,7 +137,10 @@ const TeacherDashboard = () => {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [standardModalVisible, setStandardModalVisible] = useState(false);
-  const [selectedStandard, setSelectedStandard] = useState<{ code: string; desc: string } | null>(null);
+  const [selectedStandard, setSelectedStandard] = useState<{
+    code: string;
+    desc: string;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<"simple" | "detailed">("simple");
 
   const joinUrl = useMemo(() => {
@@ -110,7 +169,9 @@ const TeacherDashboard = () => {
     setDbError(null);
     updateClassCode(classId)
       .then((c) => setClassCode(c.code))
-      .catch((e) => setDbError(e instanceof Error ? e.message : "Failed to rotate code"));
+      .catch((e) =>
+        setDbError(e instanceof Error ? e.message : "Failed to rotate code"),
+      );
   };
 
   const logout = async () => {
@@ -124,34 +185,22 @@ const TeacherDashboard = () => {
     listAssignedMaterialsForStudent(s.id)
       .then((rows) => {
         const titles = rows.map((r) => r.title);
-        setStudents((prev) => prev.map((x) => (x.id === s.id ? { ...x, supplementary: titles } : x)));
-        setSelectedStudent((prev) => (prev ? { ...prev, supplementary: titles } : prev));
+        setStudents((prev) =>
+          prev.map((x) =>
+            x.id === s.id ? { ...x, supplementary: titles } : x,
+          ),
+        );
+        setSelectedStudent((prev) =>
+          prev ? { ...prev, supplementary: titles } : prev,
+        );
       })
-      .catch(() => {
-      });
+      .catch(() => {});
   };
 
   const [syncingHandshake, setSyncingHandshake] = useState(false);
-  const [syncStep, setSyncStep] = useState<"idle" | "scanning" | "receiving" | "success">("idle");
-
-  const startHandshake = () => {
-    if (syncingHandshake) return;
-    setSyncingHandshake(true);
-    setSyncStep("scanning");
-
-    setTimeout(() => {
-      setSyncStep("receiving");
-      setTimeout(async () => {
-        if (classId) await commitHandshake(classId);
-        setSyncStep("success");
-        if (classId) refreshStudents(classId);
-        setTimeout(() => {
-          setSyncingHandshake(false);
-          setSyncStep("idle");
-        }, 3000);
-      }, 2500);
-    }, 1500);
-  };
+  const [syncStep, setSyncStep] = useState<
+    "idle" | "scanning" | "receiving" | "success"
+  >("idle");
 
   const refreshStudents = async (id: string) => {
     const [items, assessments] = await Promise.all([
@@ -160,17 +209,25 @@ const TeacherDashboard = () => {
     ]);
 
     const sessions = await listInterventionSessionsForClass(id).catch(() => []);
-    const sessionsByStudent = new Map<string, { total: number; mastery: number }>();
+    const sessionsByStudent = new Map<
+      string,
+      { total: number; mastery: number }
+    >();
     for (const s of sessions) {
-      const current = sessionsByStudent.get(s.studentId) ?? { total: 0, mastery: 0 };
+      const current = sessionsByStudent.get(s.studentId) ?? {
+        total: 0,
+        mastery: 0,
+      };
       current.total += 1;
       if (s.masteryAchieved) current.mastery += 1;
       sessionsByStudent.set(s.studentId, current);
     }
 
-    type Assessment = Awaited<ReturnType<typeof listAssessmentsForClass>>[number];
+    type Assessment = Awaited<
+      ReturnType<typeof listAssessmentsForClass>
+    >[number];
     const byStudent = new Map<string, Assessment[]>();
-    for (const a of (assessments as Assessment[])) {
+    for (const a of assessments as Assessment[]) {
       const list = byStudent.get(a.studentId) ?? [];
       list.push(a);
       byStudent.set(a.studentId, list);
@@ -184,13 +241,30 @@ const TeacherDashboard = () => {
       const accuracy = latest?.accuracyRate ?? null;
       const comprehension = latest?.comprehensionScore ?? null;
       const rawLevel = latest?.level ?? "Instructional";
-      const level = (rawLevel as string) === "Frustration" ? "Frustrational" : rawLevel as "Independent" | "Instructional" | "Frustrational";
+      const level =
+        (rawLevel as string) === "Frustration"
+          ? "Frustrational"
+          : (rawLevel as "Independent" | "Instructional" | "Frustrational");
       const gap = latest?.gap ?? null;
-      const progress = comprehension != null ? Math.max(0, Math.min(100, Math.round(comprehension))) : 0;
-      const trend = prev?.wcpm != null && wcpm != null ? (wcpm >= prev.wcpm ? "up" : "down") : "up";
-      const urgent = level === "Frustrational" || (accuracy != null && accuracy < 95) || (comprehension != null && comprehension < 50);
+      const progress =
+        comprehension != null
+          ? Math.max(0, Math.min(100, Math.round(comprehension)))
+          : 0;
+      const trend =
+        prev?.wcpm != null && wcpm != null
+          ? wcpm >= prev.wcpm
+            ? "up"
+            : "down"
+          : "up";
+      const urgent =
+        level === "Frustrational" ||
+        (accuracy != null && accuracy < 95) ||
+        (comprehension != null && comprehension < 50);
       const lastTest = latest?.createdAt
-        ? new Date(latest.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        ? new Date(latest.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })
         : "-";
 
       const existing = students.find((p) => p.id === s.id);
@@ -229,57 +303,116 @@ const TeacherDashboard = () => {
       if (nextStudents.length === 0) {
         setSummary(null);
       } else {
-        const gaps = nextStudents.map((s) => (s.gap ?? "").trim()).filter(Boolean);
+        const gaps = nextStudents
+          .map((s) => (s.gap ?? "").trim())
+          .filter(Boolean);
         const counts = new Map<string, number>();
         for (const g of gaps) counts.set(g, (counts.get(g) ?? 0) + 1);
-        const mostCommonGap = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "General reading support";
+        const mostCommonGap =
+          Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+          "General reading support";
 
         const urgent = nextStudents
           .filter((s) => s.urgent)
           .slice(0, 5)
-          .map((s) => ({ student_name: s.name, reason: `${s.level} level or low score flagged` }));
+          .map((s) => ({
+            student_name: s.name,
+            reason: `${s.level} level or low score flagged`,
+          }));
 
         const STREAMS = {
-          "MATATAG L2.PHO.02": "Grade 2 Phonological Awareness: Focuses on the ability to blend, segment, and manipulate sounds in words with consonant clusters (e.g., 'br', 'tr'). Required for transition to independent reading fluency."
+          "MATATAG G6.FLU":
+            "MATATAG Grade 6 Oral Reading Fluency — Phil-IRI standard: Fast readers achieve 190+ WPM, Average 151–189 WPM. Target WCPM for intervention: 140. Based on DepEd DO 14, s. 2018.",
         };
 
         const summary: TeacherSummaryResponse = {
           class_health: {
-            frustrational_count: nextStudents.filter((s) => s.level === "Frustrational").length,
-            instructional_count: nextStudents.filter((s) => s.level === "Instructional").length,
-            independent_count: nextStudents.filter((s) => s.level === "Independent").length,
+            frustrational_count: nextStudents.filter(
+              (s) => s.level === "Frustrational",
+            ).length,
+            instructional_count: nextStudents.filter(
+              (s) => s.level === "Instructional",
+            ).length,
+            independent_count: nextStudents.filter(
+              (s) => s.level === "Independent",
+            ).length,
             total_students: nextStudents.length,
           },
           urgent_attention: urgent,
-          most_common_gap: "Decoding: Consonant Clusters (MATATAG L2.PHO.02)",
-          group_activity_suggestion: "Multi-sensory Blending: Use the 'Seven Tribes' vocabulary set for a 15-minute kinesthetic drill focused on 'pr', 'tr', and 'br' clusters.",
-          summary_text: "Based on the last 48 hours of diagnostics, 65% of your students are showing a specific pattern of mispronunciation in vowel-consonant 'clusters'. We recommend a group-level intervention.",
+          most_common_gap:
+            "Comprehension: Identifying Main Idea and Key Details (MATATAG G6.COMP)",
+          group_activity_suggestion:
+            "Main Idea Mapping: Use the 'Bukidnon Highlands' passage for a 15-minute group activity where students identify the main idea and three supporting details — a core MATATAG Grade 6 comprehension skill.",
+          summary_text:
+            "Based on the latest diagnostics, most students are below the MATATAG Grade 6 Independent comprehension threshold of 90% (Phil-IRI DO 14, s. 2018). Group instruction focused on main idea identification and key detail support is recommended before the next individual assessment.",
         };
 
         setSummary(summary);
       }
     } catch (e) {
       setSummary(null);
-      setSummaryError(e instanceof Error ? e.message : "Teacher summary is unavailable.");
+      setSummaryError(
+        e instanceof Error ? e.message : "Teacher summary is unavailable.",
+      );
     } finally {
       setSummaryLoading(false);
     }
   };
 
-  useEffect(() => {
+  const loadDashboard = async () => {
     setLoadingClass(true);
     setDbError(null);
+    try {
+      const c = await ensureTeacherClass(teacherId);
+      setClassId(c.id);
+      setClassCode(c.code);
+      await refreshStudents(c.id);
+    } catch (e) {
+      setDbError(e instanceof Error ? e.message : "Failed to load class");
+    } finally {
+      setLoadingClass(false);
+    }
+  };
 
-    ensureTeacherClass(teacherId)
-      .then(async (c) => {
-        setClassId(c.id);
-        setClassCode(c.code);
-        await refreshStudents(c.id);
-      })
-      .catch((e) => setDbError(e instanceof Error ? e.message : "Failed to load class"))
-      .finally(() => setLoadingClass(false));
+  const startHandshake = () => {
+    if (syncingHandshake) return;
+    setSyncingHandshake(true);
+    setSyncStep("scanning");
+
+    setTimeout(() => {
+      setSyncStep("receiving");
+      setTimeout(async () => {
+        if (classId) await commitHandshake(classId);
+        await loadDashboard();
+        setSyncStep("success");
+        setTimeout(() => {
+          sessionStorage.setItem(HANDSHAKE_TOAST_KEY, "1");
+          window.location.reload();
+        }, 1200);
+      }, 2500);
+    }, 1500);
+  };
+
+  useEffect(() => {
+    void loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(HANDSHAKE_TOAST_KEY) !== "1") return;
+    sessionStorage.removeItem(HANDSHAKE_TOAST_KEY);
+    toast.success("Sync complete", {
+      position: "top-center",
+      duration: 2400,
+      className:
+        "min-h-0 rounded-full border border-kinaiya-green/20 bg-kinaiya-green-light px-4 py-2 text-kinaiya-green shadow-md",
+      classNames: {
+        title: "text-xs font-bold tracking-wide",
+        content: "gap-0",
+        icon: "text-kinaiya-green",
+      },
+    });
+  }, []);
 
   const createStudent = async () => {
     if (!classId) return;
@@ -297,16 +430,38 @@ const TeacherDashboard = () => {
 
   const totalStudents = students.length;
   const needHelp = students.filter((s) => s.urgent).length;
-  const avgProgress = totalStudents > 0 ? Math.round(students.reduce((sum, s) => sum + s.progress, 0) / totalStudents) : 0;
+  const avgProgress =
+    totalStudents > 0
+      ? Math.round(
+          students.reduce((sum, s) => sum + s.progress, 0) / totalStudents,
+        )
+      : 0;
 
   const stats = [
-    { label: "Total Students", value: String(totalStudents), icon: Users, color: "bg-kinaiya-blue-light text-kinaiya-blue" },
-    { label: "Need Help", value: String(needHelp), icon: AlertTriangle, color: "bg-kinaiya-red-light text-kinaiya-red" },
-    { label: "Avg Progress", value: `${avgProgress}%`, icon: TrendingUp, color: "bg-kinaiya-green-light text-kinaiya-green" },
+    {
+      label: "Total Students",
+      value: String(totalStudents),
+      icon: Users,
+      color: "bg-kinaiya-blue-light text-kinaiya-blue",
+    },
+    {
+      label: "Need Help",
+      value: String(needHelp),
+      icon: AlertTriangle,
+      color: "bg-kinaiya-red-light text-kinaiya-red",
+    },
+    {
+      label: "Avg Progress",
+      value: `${avgProgress}%`,
+      icon: TrendingUp,
+      color: "bg-kinaiya-green-light text-kinaiya-green",
+    },
   ];
 
   const filteredStudents = students.filter((s) => {
-    const matchesSearch = s.name.toLowerCase().includes(searchFilter.toLowerCase());
+    const matchesSearch = s.name
+      .toLowerCase()
+      .includes(searchFilter.toLowerCase());
     const matchesLevel = levelFilter === "All" || s.level === levelFilter;
     return matchesSearch && matchesLevel;
   });
@@ -339,21 +494,45 @@ const TeacherDashboard = () => {
         ? selectedStudent.supplementary
         : [...selectedStudent.supplementary, cleaned];
 
-      setStudents((prev) => prev.map((s) => (s.id === selectedStudent.id ? { ...s, supplementary: nextTitles } : s)));
-      setSelectedStudent((prev) => (prev ? { ...prev, supplementary: nextTitles } : null));
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === selectedStudent.id ? { ...s, supplementary: nextTitles } : s,
+        ),
+      );
+      setSelectedStudent((prev) =>
+        prev ? { ...prev, supplementary: nextTitles } : null,
+      );
       setNewReadingTitle("");
       setShowAddReading(false);
     };
 
-    run().catch((e) => setDbError(e instanceof Error ? e.message : "Failed to assign material"));
+    run().catch((e) =>
+      setDbError(e instanceof Error ? e.message : "Failed to assign material"),
+    );
   };
 
   const removeSupplementary = (material: string) => {
     if (!selectedStudent) return;
     const id = materialMap.get(material.toLowerCase());
     if (!id) {
-      setStudents((prev) => prev.map((s) => (s.id === selectedStudent.id ? { ...s, supplementary: s.supplementary.filter((m) => m !== material) } : s)));
-      setSelectedStudent((prev) => (prev ? { ...prev, supplementary: prev.supplementary.filter((m) => m !== material) } : null));
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === selectedStudent.id
+            ? {
+                ...s,
+                supplementary: s.supplementary.filter((m) => m !== material),
+              }
+            : s,
+        ),
+      );
+      setSelectedStudent((prev) =>
+        prev
+          ? {
+              ...prev,
+              supplementary: prev.supplementary.filter((m) => m !== material),
+            }
+          : null,
+      );
       return;
     }
 
@@ -362,25 +541,45 @@ const TeacherDashboard = () => {
         setStudents((prev) =>
           prev.map((s) =>
             s.id === selectedStudent.id
-              ? { ...s, supplementary: s.supplementary.filter((m) => m !== material) }
-              : s
-          )
+              ? {
+                  ...s,
+                  supplementary: s.supplementary.filter((m) => m !== material),
+                }
+              : s,
+          ),
         );
         setSelectedStudent((prev) =>
-          prev ? { ...prev, supplementary: prev.supplementary.filter((m) => m !== material) } : null
+          prev
+            ? {
+                ...prev,
+                supplementary: prev.supplementary.filter((m) => m !== material),
+              }
+            : null,
         );
       })
-      .catch((e) => setDbError(e instanceof Error ? e.message : "Failed to unassign material"));
+      .catch((e) =>
+        setDbError(
+          e instanceof Error ? e.message : "Failed to unassign material",
+        ),
+      );
   };
 
   return (
     <div className="mobile-container bg-background px-5 pb-8">
       {/* Header */}
       <div className="flex items-center gap-3 pt-6 pb-4">
-        <img src={heroImg} alt="Logo" className="w-10 h-10 rounded-xl shadow-sm border border-border" />
+        <img
+          src={heroImg}
+          alt="Logo"
+          className="w-10 h-10 rounded-xl shadow-sm border border-border"
+        />
         <div>
-          <h1 className="font-display font-bold text-foreground text-lg">Teacher Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Grade 3 — Section Mabini</p>
+          <h1 className="font-display font-bold text-foreground text-lg">
+            Teacher Dashboard
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Grade 3 — Section Mabini
+          </p>
         </div>
         <button
           onClick={logout}
@@ -404,19 +603,22 @@ const TeacherDashboard = () => {
         >
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Zap className={`w-4 h-4 text-kinaiya-blue ${syncingHandshake ? "animate-pulse" : ""}`} />
+              <Zap
+                className={`w-4 h-4 text-kinaiya-blue ${syncingHandshake ? "animate-pulse" : ""}`}
+              />
               {!syncingHandshake && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-kinaiya-blue rounded-full animate-ping" />
               )}
             </div>
             <span className="text-xs font-bold text-kinaiya-blue uppercase tracking-tight">
-              {syncingHandshake ? "Syncing Offline Data..." : "Sync Handshake Available"}
+              {syncingHandshake
+                ? "Syncing Offline Data..."
+                : "Sync Handshake Available"}
             </span>
           </div>
           <ChevronRight className="w-4 h-4 text-kinaiya-blue/40 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </motion.div>
-
 
       {/* Handshake Overlay Animation */}
       <AnimatePresence>
@@ -464,8 +666,11 @@ const TeacherDashboard = () => {
               <motion.div
                 initial={{ width: 0 }}
                 animate={
-                  syncStep === "scanning" ? { width: "30%" } :
-                    syncStep === "receiving" ? { width: "80%" } : { width: "100%" }
+                  syncStep === "scanning"
+                    ? { width: "30%" }
+                    : syncStep === "receiving"
+                      ? { width: "80%" }
+                      : { width: "100%" }
                 }
                 transition={{ duration: 1 }}
                 className="h-full bg-kinaiya-blue shadow-[0_0_15px_rgba(59,130,246,0.8)]"
@@ -504,7 +709,10 @@ const TeacherDashboard = () => {
         className="mb-5"
       >
         <Accordion type="single" collapsible>
-          <AccordionItem value="student-access" className="border-0 rounded-2xl bg-card border border-border px-4">
+          <AccordionItem
+            value="student-access"
+            className="border-0 rounded-2xl bg-card border border-border px-4"
+          >
             <AccordionTrigger className="hover:no-underline py-4">
               <div className="flex items-center justify-between w-full pr-2">
                 <div className="min-w-0 text-left">
@@ -548,14 +756,16 @@ const TeacherDashboard = () => {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Workshop MVP behavior: this QR/code does not expire. If it gets shared, tap Rotate to generate a new code.
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Students scan QR or enter code to join your class.
                 </p>
 
                 <div className="pt-2 border-t border-border">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Roster</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Roster
+                      </p>
                       <p className="font-display font-bold text-foreground text-sm">
                         Add students (teacher-only)
                       </p>
@@ -590,9 +800,9 @@ const TeacherDashboard = () => {
                     </button>
                   </form>
 
-
                   <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-                    Students join by scanning the QR and selecting their name from this roster.
+                    Students join by scanning the QR and selecting their name
+                    from this roster.
                   </p>
                 </div>
               </div>
@@ -617,10 +827,14 @@ const TeacherDashboard = () => {
             transition={{ delay: i * 0.08 }}
             className="rounded-2xl bg-card border border-border p-3 text-center"
           >
-            <div className={`w-9 h-9 rounded-xl mx-auto flex items-center justify-center ${s.color}`}>
+            <div
+              className={`w-9 h-9 rounded-xl mx-auto flex items-center justify-center ${s.color}`}
+            >
               <s.icon className="w-4 h-4" />
             </div>
-            <p className="font-display font-extrabold text-foreground text-xl mt-2">{s.value}</p>
+            <p className="font-display font-extrabold text-foreground text-xl mt-2">
+              {s.value}
+            </p>
             <p className="text-[10px] text-muted-foreground">{s.label}</p>
           </motion.div>
         ))}
@@ -636,7 +850,9 @@ const TeacherDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-kinaiya-blue" />
-            <h2 className="font-display font-bold text-foreground text-sm">Class Performance</h2>
+            <h2 className="font-display font-bold text-foreground text-sm">
+              Class Performance
+            </h2>
           </div>
 
           <div className="flex p-0.5 rounded-lg bg-muted border border-border">
@@ -659,12 +875,16 @@ const TeacherDashboard = () => {
 
         <div className="space-y-3">
           {students.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4 italic">Register students to begin mapping performance.</p>
+            <p className="text-xs text-muted-foreground text-center py-4 italic">
+              Register students to begin mapping performance.
+            </p>
           ) : viewMode === "simple" ? (
             /* Simple Progress Bar List */
             students.slice(0, 5).map((s, i) => (
               <div key={s.id} className="flex items-center gap-3">
-                <span className="text-[10px] text-muted-foreground w-16 truncate text-left font-medium">{s.name}</span>
+                <span className="text-[10px] text-muted-foreground w-16 truncate text-left font-medium">
+                  {s.name}
+                </span>
                 <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
@@ -673,7 +893,9 @@ const TeacherDashboard = () => {
                     className={`h-2.5 rounded-full ${s.progress >= 80 ? "bg-kinaiya-green" : s.progress >= 50 ? "bg-kinaiya-gold" : "bg-kinaiya-red"}`}
                   />
                 </div>
-                <span className="text-[10px] text-foreground font-black w-8 text-right">{s.progress}%</span>
+                <span className="text-[10px] text-foreground font-black w-8 text-right">
+                  {s.progress}%
+                </span>
               </div>
             ))
           ) : (
@@ -682,40 +904,77 @@ const TeacherDashboard = () => {
               <div className="flex items-center gap-2 px-1">
                 <div className="w-20" />
                 <div className="flex-1 grid grid-cols-4 gap-1.5 text-center">
-                  <span className="text-[8px] font-black text-muted-foreground uppercase">Acc</span>
-                  <span className="text-[8px] font-black text-muted-foreground uppercase">Spd</span>
-                  <span className="text-[8px] font-black text-muted-foreground uppercase">Cmp</span>
-                  <span className="text-[8px] font-black text-muted-foreground uppercase">Exp</span>
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">
+                    Acc
+                  </span>
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">
+                    Spd
+                  </span>
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">
+                    Cmp
+                  </span>
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">
+                    Exp
+                  </span>
                 </div>
               </div>
 
               {students.slice(0, 5).map((s, i) => {
-                const getHeatColor = (val: number, thresholds: [number, number]) => {
-                  if (val >= thresholds[0]) return "bg-kinaiya-green text-white";
+                const getHeatColor = (
+                  val: number,
+                  thresholds: [number, number],
+                ) => {
+                  if (val >= thresholds[0])
+                    return "bg-kinaiya-green text-white";
                   if (val >= thresholds[1]) return "bg-kinaiya-gold text-white";
                   return "bg-kinaiya-red text-white font-bold";
                 };
                 const getLevelHeat = () => {
-                  if (s.level === "Independent") return "bg-kinaiya-green text-white";
-                  if (s.level === "Instructional") return "bg-kinaiya-gold text-white";
+                  if (s.level === "Independent")
+                    return "bg-kinaiya-green text-white";
+                  if (s.level === "Instructional")
+                    return "bg-kinaiya-gold text-white";
                   return "bg-kinaiya-red text-white font-bold";
                 };
 
                 return (
                   <motion.div
                     key={s.id}
-                    initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + i * 0.05 }}
                     className="flex items-center gap-2"
                   >
                     <div className="w-20 truncate">
-                      <span className="text-[10px] font-bold text-foreground">{s.name}</span>
+                      <span className="text-[10px] font-bold text-foreground">
+                        {s.name}
+                      </span>
                     </div>
                     <div className="flex-1 grid grid-cols-4 gap-1.5 h-6">
-                      <div className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.accuracy, [95, 90])}`}>{s.accuracy}%</div>
-                      <div className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.wpm, [80, 50])}`}>{s.wpm}</div>
-                      <div className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.comprehension, [85, 70])}`}>{s.comprehension}%</div>
-                      <div className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getLevelHeat()}`}>{s.level === "Frustrational" ? "Low" : s.level === "Instructional" ? "Med" : "High"}</div>
+                      <div
+                        className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.accuracy, [95, 90])}`}
+                      >
+                        {s.accuracy}%
+                      </div>
+                      <div
+                        className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.wpm, [80, 50])}`}
+                      >
+                        {s.wpm}
+                      </div>
+                      <div
+                        className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getHeatColor(s.comprehension, [85, 70])}`}
+                      >
+                        {s.comprehension}%
+                      </div>
+                      <div
+                        className={`rounded-md flex items-center justify-center text-[9px] shadow-sm ${getLevelHeat()}`}
+                      >
+                        {s.level === "Frustrational"
+                          ? "Low"
+                          : s.level === "Instructional"
+                            ? "Med"
+                            : "High"}
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -728,18 +987,26 @@ const TeacherDashboard = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded bg-kinaiya-green" />
-              <span className="text-[8px] text-muted-foreground uppercase font-black">Ind</span>
+              <span className="text-[8px] text-muted-foreground uppercase font-black">
+                Ind
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded bg-kinaiya-gold" />
-              <span className="text-[8px] text-muted-foreground uppercase font-black">Ins</span>
+              <span className="text-[8px] text-muted-foreground uppercase font-black">
+                Ins
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded bg-kinaiya-red" />
-              <span className="text-[8px] text-muted-foreground uppercase font-black">Fru</span>
+              <span className="text-[8px] text-muted-foreground uppercase font-black">
+                Fru
+              </span>
             </div>
           </div>
-          <button className="text-[9px] font-bold text-kinaiya-blue uppercase hover:underline">Full Report</button>
+          <button className="text-[9px] font-bold text-kinaiya-blue uppercase hover:underline">
+            Full Report
+          </button>
         </div>
       </motion.div>
       {/* AI Summary - Simplified & Space-Efficient */}
@@ -752,7 +1019,9 @@ const TeacherDashboard = () => {
         <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-kinaiya-purple/10">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-kinaiya-purple" />
-            <h2 className="font-display font-bold text-foreground text-xs uppercase tracking-wider">Class Insights</h2>
+            <h2 className="font-display font-bold text-foreground text-xs uppercase tracking-wider">
+              Class Insights
+            </h2>
           </div>
           <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-tight">
             <span className="text-muted-foreground">Confidence: 98.2%</span>
@@ -766,21 +1035,25 @@ const TeacherDashboard = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 opacity-70">
                   <Zap className="w-3 h-3 text-kinaiya-red" />
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">Target Gap</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">
+                    Target Gap
+                  </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 leading-tight">
-                  <span className="text-xs font-bold text-foreground">{summary.most_common_gap.split("(")[0].trim()}</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {summary.most_common_gap.split("(")[0].trim()}
+                  </span>
                   <button
                     onClick={() => {
                       setSelectedStandard({
-                        code: "MATATAG L2.PHO.02",
-                        desc: "Grade 2 Phonological Awareness: Focuses on the ability to blend, segment, and manipulate sounds in words with consonant clusters."
+                        code: "MATATAG G6.COMP",
+                        desc: "MATATAG Grade 6 Comprehension: Identifying Main Idea and Key Details — Students identify the main idea and supporting details of grade-level informational and literary texts. (Phil-IRI Independent: 90% and above | DO 14, s. 2018)",
                       });
                       setStandardModalVisible(true);
                     }}
                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-kinaiya-blue/10 text-kinaiya-blue text-[8px] font-bold hover:bg-kinaiya-blue/20 transition-colors"
                   >
-                    L2.PHO.02
+                    G6.COMP
                   </button>
                 </div>
               </div>
@@ -788,7 +1061,9 @@ const TeacherDashboard = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 opacity-70">
                   <Brain className="w-3 h-3 text-kinaiya-blue" />
-                  <span className="text-[10px] font-black text-muted-foreground uppercase">Intervention</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase">
+                    Intervention
+                  </span>
                 </div>
                 <p className="text-xs font-bold text-foreground leading-tight line-clamp-2">
                   Multi-sensory Blending Drill
@@ -803,13 +1078,15 @@ const TeacherDashboard = () => {
             </div>
 
             <div className="w-full bg-muted rounded-full h-0.5 opacity-50">
-              <motion.div initial={{ width: 0 }} animate={{ width: "98.2%" }} className="h-0.5 bg-kinaiya-purple rounded-full" />
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: "98.2%" }}
+                className="h-0.5 bg-kinaiya-purple rounded-full"
+              />
             </div>
           </div>
         )}
       </motion.div>
-
-
 
       {/* Students needing attention */}
       <h2 className="font-display font-bold text-foreground text-sm mb-3 flex items-center gap-2">
@@ -838,13 +1115,17 @@ const TeacherDashboard = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-foreground">{s.name}</p>
+                    <p className="text-sm font-bold text-foreground">
+                      {s.name}
+                    </p>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-kinaiya-red/10 text-kinaiya-red font-black uppercase tracking-tighter">
                       {getMatatagCode(s.gap)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-[10px] text-muted-foreground">{s.wpm} WPM · {s.accuracy}% accuracy</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {s.wpm} WPM · {s.accuracy}% accuracy
+                    </p>
                     {s.mastery && (
                       <span className="text-[9px] bg-kinaiya-green-light text-kinaiya-green px-1.5 py-0.5 rounded-full font-bold">
                         MASTERY ACHIEVED
@@ -857,8 +1138,6 @@ const TeacherDashboard = () => {
             ))
         )}
       </div>
-
-
 
       {/* Search & Filter */}
       <div className="flex gap-2 mb-3">
@@ -874,26 +1153,33 @@ const TeacherDashboard = () => {
         </div>
       </div>
       <div className="flex gap-2 mb-4 overflow-x-auto">
-        {["All", "Frustrational", "Instructional", "Independent"].map((level) => (
-          <button
-            key={level}
-            onClick={() => setLevelFilter(level)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${levelFilter === level
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
+        {["All", "Frustrational", "Instructional", "Independent"].map(
+          (level) => (
+            <button
+              key={level}
+              onClick={() => setLevelFilter(level)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                levelFilter === level
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
               }`}
-          >
-            {level}
-          </button>
-        ))}
+            >
+              {level}
+            </button>
+          ),
+        )}
       </div>
 
       {/* All Students */}
-      <h2 className="font-display font-bold text-foreground text-sm mb-3">All Students</h2>
+      <h2 className="font-display font-bold text-foreground text-sm mb-3">
+        All Students
+      </h2>
       <div className="space-y-2 mb-6">
         {filteredStudents.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-3">
-            {students.length === 0 ? "Add students to the roster to get started." : "No students match your filters."}
+            {students.length === 0
+              ? "Add students to the roster to get started."
+              : "No students match your filters."}
           </p>
         ) : (
           filteredStudents.map((s, i) => (
@@ -911,10 +1197,14 @@ const TeacherDashboard = () => {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground flex items-center gap-2">
                   {s.name}
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter ${levelColor(s.level)}`}>
+                  <span
+                    className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter ${levelColor(s.level)}`}
+                  >
                     {getMatatagCode(s.gap)}
                   </span>
-                  {s.mastery && <CheckCircle2 className="w-3.5 h-3.5 text-kinaiya-green" />}
+                  {s.mastery && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-kinaiya-green" />
+                  )}
                 </p>
                 <div className="bg-muted rounded-full h-1.5 mt-1">
                   <div
@@ -925,11 +1215,15 @@ const TeacherDashboard = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right mr-1">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${levelColor(s.level)}`}>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${levelColor(s.level)}`}
+                  >
                     {s.level}
                   </span>
                   {s.urgent && !s.mastery && (
-                    <div className="text-[9px] text-destructive font-bold mt-0.5">IN LOOP</div>
+                    <div className="text-[9px] text-destructive font-bold mt-0.5">
+                      IN LOOP
+                    </div>
                   )}
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -947,7 +1241,10 @@ const TeacherDashboard = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-foreground/40 z-50 flex items-end justify-center"
-            onClick={() => { setSelectedStudent(null); setShowAddReading(false); }}
+            onClick={() => {
+              setSelectedStudent(null);
+              setShowAddReading(false);
+            }}
           >
             <motion.div
               initial={{ y: "100%" }}
@@ -960,22 +1257,36 @@ const TeacherDashboard = () => {
               {/* Close */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-bold ${levelColor(selectedStudent.level)}`}>
+                  <div
+                    className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-bold ${levelColor(selectedStudent.level)}`}
+                  >
                     {selectedStudent.name.charAt(0)}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="font-display font-bold text-foreground">{selectedStudent.name}</h2>
-                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter ${levelColor(selectedStudent.level)}`}>
+                      <h2 className="font-display font-bold text-foreground">
+                        {selectedStudent.name}
+                      </h2>
+                      <span
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter ${levelColor(selectedStudent.level)}`}
+                      >
                         {getMatatagCode(selectedStudent.gap)}
                       </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${levelColor(selectedStudent.level)}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${levelColor(selectedStudent.level)}`}
+                    >
                       {selectedStudent.level}
                     </span>
                   </div>
                 </div>
-                <button onClick={() => { setSelectedStudent(null); setShowAddReading(false); }} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <button
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setShowAddReading(false);
+                  }}
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
+                >
                   <X className="w-4 h-4 text-foreground" />
                 </button>
               </div>
@@ -983,42 +1294,69 @@ const TeacherDashboard = () => {
               {/* Diagnostic Results */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
-                  { label: "WPM", value: selectedStudent.wpm, target: 90 },
-                  { label: "Accuracy", value: `${selectedStudent.accuracy}%`, target: 95 },
-                  { label: "Comprehension", value: `${selectedStudent.comprehension}%`, target: 85 },
+                  { label: "WPM", value: selectedStudent.wpm, target: 140 },
+                  {
+                    label: "Accuracy",
+                    value: `${selectedStudent.accuracy}%`,
+                    target: 97,
+                  },
+                  {
+                    label: "Comprehension",
+                    value: `${selectedStudent.comprehension}%`,
+                    target: 90,
+                  },
                 ].map((m) => (
-                  <div key={m.label} className="rounded-xl bg-card border border-border p-3 text-center">
-                    <p className="font-display font-extrabold text-foreground text-lg">{m.value}</p>
-                    <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                  <div
+                    key={m.label}
+                    className="rounded-xl bg-card border border-border p-3 text-center"
+                  >
+                    <p className="font-display font-extrabold text-foreground text-lg">
+                      {m.value}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {m.label}
+                    </p>
                   </div>
                 ))}
               </div>
 
               <div className="rounded-xl bg-muted/50 p-3 mb-4">
                 <p className="text-xs text-muted-foreground mb-2">
-                  <span className="font-medium">Last tested:</span> {selectedStudent.lastTest} · <span className="font-medium">Overall:</span> {selectedStudent.progress}% progress
+                  <span className="font-medium">Last tested:</span>{" "}
+                  {selectedStudent.lastTest} ·{" "}
+                  <span className="font-medium">Overall:</span>{" "}
+                  {selectedStudent.progress}% progress
                 </p>
                 <div className="pt-2 border-t border-border/50 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <Brain className="w-3 h-3 text-kinaiya-blue" />
                     <p className="text-[10px] font-bold text-kinaiya-blue uppercase tracking-widest">
-                      SLM Recommendation: {selectedStudent.level === "Frustrational" ? "Intensive Phonics Scaffolding" : "Fluency Building"}
+                      SLM Recommendation:{" "}
+                      {selectedStudent.level === "Frustrational"
+                        ? "Intensive Decoding Support"
+                        : "Fluency & Comprehension Building"}
                     </p>
                   </div>
                   <button
                     onClick={() => {
                       setSelectedStandard({
-                        code: selectedStudent.level === "Frustrational" ? "MATATAG L1.PHO.04" : "MATATAG L2.FL.01",
-                        desc: selectedStudent.level === "Frustrational"
-                          ? "Grade 1 Phonological Awareness: Focuses on the ability to track and produce individual sounds."
-                          : "Grade 2 Fluency: Reading with appropriate pace, accuracy, and expression."
+                        code:
+                          selectedStudent.level === "Frustrational"
+                            ? "MATATAG G6.WR"
+                            : "MATATAG G6.FLU",
+                        desc:
+                          selectedStudent.level === "Frustrational"
+                            ? "MATATAG Grade 6 Word Recognition: Decoding multi-syllabic and content-area words accurately. (Phil-IRI Independent: 97–100% word recognition | DO 14, s. 2018)"
+                            : "MATATAG Grade 6 Fluency: Oral reading rate and expression. Target: 140 WCPM. (Phil-IRI Grade 6: Fast readers 190+ WPM, Average 151–189 WPM | DO 14, s. 2018)",
                       });
                       setStandardModalVisible(true);
                     }}
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-kinaiya-blue/10 text-kinaiya-blue text-[9px] font-bold w-fit border border-kinaiya-blue/20"
                   >
                     <BookOpen className="w-2.5 h-2.5" />
-                    {selectedStudent.level === "Frustrational" ? "MATATAG L1.PHO.04" : "MATATAG L2.FL.01"}
+                    {selectedStudent.level === "Frustrational"
+                      ? "MATATAG G6.WR"
+                      : "MATATAG G6.FLU"}
                     <ExternalLink className="w-2.5 h-2.5" />
                   </button>
                 </div>
@@ -1041,36 +1379,30 @@ const TeacherDashboard = () => {
                 </div>
 
                 {selectedStudent.supplementary.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No supplementary readings assigned yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No supplementary readings assigned yet.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {selectedStudent.supplementary.map((material) => (
-                      <div key={material} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+                      <div
+                        key={material}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border"
+                      >
                         <BookOpen className="w-4 h-4 text-kinaiya-blue flex-shrink-0" />
-                        <span className="text-sm text-foreground flex-1">{material}</span>
-                        <button onClick={() => removeSupplementary(material)} className="text-muted-foreground hover:text-destructive">
+                        <span className="text-sm text-foreground flex-1">
+                          {material}
+                        </span>
+                        <button
+                          onClick={() => removeSupplementary(material)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Technical SLM Log for Presentation/Teacher */}
-              <div className="mb-6 rounded-2xl bg-kinaiya-blue/5 border border-kinaiya-blue/10 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-kinaiya-blue animate-pulse" />
-                  <h3 className="text-[10px] font-black text-kinaiya-blue uppercase tracking-widest">
-                    KINAIYA SLM - Evaluation Log
-                  </h3>
-                </div>
-                <div className="font-mono text-[9px] space-y-1.5 opacity-70 leading-relaxed">
-                  <p className="flex justify-between"><span>&gt; MATATAG_SYNC:</span> <span className="font-bold text-kinaiya-blue">SUCCESS_{getMatatagCode(selectedStudent.gap)}</span></p>
-                  <p className="flex justify-between"><span>&gt; PATTERN_ANALYSIS:</span> <span className="font-bold text-kinaiya-blue">LOCAL_EDGE_INFERENCE</span></p>
-                  <p className="flex justify-between"><span>&gt; PHIL_IRI_MAPPING:</span> <span className="font-bold text-kinaiya-blue">{selectedStudent.level.toUpperCase()}</span></p>
-                  <p className="flex justify-between"><span>&gt; SOVEREIGN_STATUS:</span> <span className="font-bold text-kinaiya-blue">OFFLINE_VERIFIED</span></p>
-                </div>
               </div>
 
               {/* Add Reading Material Drawer */}
@@ -1082,7 +1414,9 @@ const TeacherDashboard = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="rounded-2xl bg-kinaiya-blue-light border border-kinaiya-blue/20 p-4 mb-4 overflow-hidden"
                   >
-                    <h4 className="font-display font-bold text-foreground text-sm mb-3">Add Reading Material</h4>
+                    <h4 className="font-display font-bold text-foreground text-sm mb-3">
+                      Add Reading Material
+                    </h4>
                     <div className="flex gap-2">
                       <input
                         value={newReadingTitle}
@@ -1100,11 +1434,18 @@ const TeacherDashboard = () => {
                       </button>
                     </div>
 
-                    {materials.filter((m) => !selectedStudent.supplementary.includes(m.title)).length > 0 && (
+                    {materials.filter(
+                      (m) => !selectedStudent.supplementary.includes(m.title),
+                    ).length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Existing materials</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                          Existing materials
+                        </p>
                         {materials
-                          .filter((m) => !selectedStudent.supplementary.includes(m.title))
+                          .filter(
+                            (m) =>
+                              !selectedStudent.supplementary.includes(m.title),
+                          )
                           .slice(0, 8)
                           .map((m) => (
                             <button
@@ -1113,21 +1454,27 @@ const TeacherDashboard = () => {
                               className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-border text-left active:scale-[0.98] transition-transform"
                             >
                               <Plus className="w-4 h-4 text-primary flex-shrink-0" />
-                              <span className="text-sm text-foreground">{m.title}</span>
+                              <span className="text-sm text-foreground">
+                                {m.title}
+                              </span>
                             </button>
                           ))}
                       </div>
                     )}
 
                     <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-                      Materials are saved to Supabase and can be assigned to multiple students.
+                      Materials are saved to Supabase and can be assigned to
+                      multiple students.
                     </p>
                   </motion.div>
                 )}
               </AnimatePresence>
 
               <button
-                onClick={() => { setSelectedStudent(null); setShowAddReading(false); }}
+                onClick={() => {
+                  setSelectedStudent(null);
+                  setShowAddReading(false);
+                }}
                 className="w-full py-3 rounded-2xl bg-gradient-kinaiya text-primary-foreground font-display font-bold text-sm shadow-kinaiya active:scale-[0.98] transition-transform"
               >
                 Done
@@ -1158,8 +1505,12 @@ const TeacherDashboard = () => {
                 </button>
               </div>
 
-              <h3 className="text-xs font-black text-kinaiya-blue uppercase tracking-widest">Official DepEd Standard</h3>
-              <h2 className="text-xl font-display font-black text-foreground mt-1 mb-3">{selectedStandard.code}</h2>
+              <h3 className="text-xs font-black text-kinaiya-blue uppercase tracking-widest">
+                Official DepEd Standard
+              </h3>
+              <h2 className="text-xl font-display font-black text-foreground mt-1 mb-3">
+                {selectedStandard.code}
+              </h2>
 
               <div className="p-4 rounded-2xl bg-muted/40 border border-border mb-4">
                 <p className="text-sm text-foreground leading-relaxed">
@@ -1170,11 +1521,15 @@ const TeacherDashboard = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-kinaiya-green" />
-                  <p className="text-xs text-muted-foreground">Competency mapped to KINAIYA SLM</p>
+                  <p className="text-xs text-muted-foreground">
+                    Competency mapped to KINAIYA SLM
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-kinaiya-blue" />
-                  <p className="text-xs text-muted-foreground">Aligned with DepEd Memo #42-2023</p>
+                  <p className="text-xs text-muted-foreground">
+                    Aligned with DepEd Memo #42-2023
+                  </p>
                 </div>
               </div>
 
@@ -1191,7 +1546,13 @@ const TeacherDashboard = () => {
       {/* Global Methodology Note Footer */}
       <div className="mt-8 mb-6 p-4 rounded-2xl bg-muted/30 border border-border/50">
         <p className="text-[10px] text-muted-foreground leading-relaxed text-center italic">
-          <span className="font-bold text-foreground not-italic">Technical Standards:</span> KINAIYA diagnostics utilize a systematic process evaluating Meaning (Semantic), Structure (Syntactic), and Visual (Graphophonic) cues, strictly adhering to the Clinical Running Record standards for Phil-IRI and MATATAG alignment.
+          <span className="font-bold text-foreground not-italic">
+            Technical Standards:
+          </span>{" "}
+          KINAIYA diagnostics utilize a systematic process evaluating Meaning
+          (Semantic), Structure (Syntactic), and Visual (Graphophonic) cues,
+          strictly adhering to the Clinical Running Record standards for
+          Phil-IRI and MATATAG alignment.
         </p>
       </div>
     </div>

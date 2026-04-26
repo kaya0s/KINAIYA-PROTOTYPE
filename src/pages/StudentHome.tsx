@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Mic, Trophy, TrendingUp, Cloud, Gamepad2, Download, CloudLightning, CheckCircle2, LogOut } from "lucide-react";
+import {
+  BookOpen,
+  Mic,
+  Trophy,
+  TrendingUp,
+  Cloud,
+  Gamepad2,
+  Download,
+  CloudLightning,
+  CheckCircle2,
+  LogOut,
+} from "lucide-react";
 import WeatherWidget from "@/components/WeatherWidget";
 import heroImg from "@/assets/hero-illustration.png";
 import type { AnalyzeResponse, ResiliencePackResponse } from "@/lib/kinaiyaApi";
 import { getStudentFriendlyLevel } from "@/lib/kinaiyaApi";
-import { getStudentProfileByCode, listAssignedMaterialsByCode } from "@/lib/kinaiyaDb";
+import {
+  getStudentProfileByCode,
+  listAssignedMaterialsByCode,
+} from "@/lib/kinaiyaDb";
 import { createResiliencePackMock } from "@/lib/resiliencePackMock";
 
 const STUDENT_SESSION_KEY = "kinaiya_student_session_v1";
@@ -18,13 +32,25 @@ const StudentHome = () => {
   const [downloadingPack, setDownloadingPack] = useState(false);
   const [stormAlertActive, setStormAlertActive] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
-  const [assignedMaterials, setAssignedMaterials] = useState<Array<{ title: string }>>([]);
+  const [assignedMaterials, setAssignedMaterials] = useState<
+    Array<{ title: string }>
+  >([]);
   const [online, setOnline] = useState<boolean>(() => navigator.onLine);
   const [profileLevel, setProfileLevel] = useState<string | null>(null);
-  const [session, setSession] = useState<{ name?: string; classCode?: string; studentId?: string } | null>(() => {
+  const [session, setSession] = useState<{
+    name?: string;
+    classCode?: string;
+    studentId?: string;
+  } | null>(() => {
     try {
       const raw = localStorage.getItem(STUDENT_SESSION_KEY);
-      return raw ? (JSON.parse(raw) as { name?: string; classCode?: string; studentId?: string }) : null;
+      return raw
+        ? (JSON.parse(raw) as {
+            name?: string;
+            classCode?: string;
+            studentId?: string;
+          })
+        : null;
     } catch {
       return null;
     }
@@ -41,12 +67,20 @@ const StudentHome = () => {
     }
   }, []);
 
-  const [resiliencePack, setResiliencePack] = useState<{ pack: ResiliencePackResponse; createdAt: string | null } | null>(() => {
+  const [resiliencePack, setResiliencePack] = useState<{
+    pack: ResiliencePackResponse;
+    createdAt: string | null;
+  } | null>(() => {
     try {
       const raw = localStorage.getItem(RESILIENCE_PACK_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { pack?: ResiliencePackResponse; createdAt?: string };
-      return parsed.pack ? { pack: parsed.pack, createdAt: parsed.createdAt ?? null } : null;
+      const parsed = JSON.parse(raw) as {
+        pack?: ResiliencePackResponse;
+        createdAt?: string;
+      };
+      return parsed.pack
+        ? { pack: parsed.pack, createdAt: parsed.createdAt ?? null }
+        : null;
     } catch {
       return null;
     }
@@ -60,7 +94,9 @@ const StudentHome = () => {
     if (!session?.classCode || !session?.studentId) return;
 
     listAssignedMaterialsByCode(session.classCode, session.studentId)
-      .then((rows) => setAssignedMaterials(rows.map((r) => ({ title: r.title }))))
+      .then((rows) =>
+        setAssignedMaterials(rows.map((r) => ({ title: r.title }))),
+      )
       .catch(() => setAssignedMaterials([]));
 
     getStudentProfileByCode(session.classCode, session.studentId)
@@ -92,10 +128,15 @@ const StudentHome = () => {
           try {
             const pack = createResiliencePackMock({
               days: 14,
-              level: (profileLevel || analysis?.level || "Instructional") as "Instructional",
-              gap: analysis?.gap || "General reading support"
+              level: (profileLevel ||
+                analysis?.level ||
+                "Instructional") as "Instructional",
+              gap: analysis?.gap || "General reading support",
             });
-            localStorage.setItem(RESILIENCE_PACK_KEY, JSON.stringify({ pack, createdAt: new Date().toISOString() }));
+            localStorage.setItem(
+              RESILIENCE_PACK_KEY,
+              JSON.stringify({ pack, createdAt: new Date().toISOString() }),
+            );
             setResiliencePack({ pack, createdAt: new Date().toISOString() });
             setDownloadingPack(false);
             setShowSyncSuccess(true);
@@ -199,7 +240,9 @@ const StudentHome = () => {
           className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/20 transition-colors group"
           title="Simulate PAGASA Alert"
         >
-          <CloudLightning className={`w-3 h-3 ${stormAlertActive ? "text-kinaiya-red" : "text-muted-foreground"}`} />
+          <CloudLightning
+            className={`w-3 h-3 ${stormAlertActive ? "text-kinaiya-red" : "text-muted-foreground"}`}
+          />
         </button>
       </motion.div>
       <AnimatePresence>
@@ -215,19 +258,23 @@ const StudentHome = () => {
                 <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
                   <CloudLightning className="w-5 h-5 text-white" />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">PAGASA</span>
+                    <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">
+                      PAGASA
+                    </span>
                     <div className="w-1 h-1 rounded-full bg-white/30" />
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Signal #2</span>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                      Signal #2
+                    </span>
                   </div>
                   <h2 className="text-base font-bold text-white truncate">
                     Syncing Offline Lessons...
                   </h2>
                 </div>
               </div>
-              
+
               {/* Ultra-thin bottom progress bar */}
               <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
                 <motion.div
@@ -256,8 +303,12 @@ const StudentHome = () => {
                   <CheckCircle2 className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/70">Secure</h3>
-                  <p className="text-sm font-bold text-white leading-tight">14-day offline pack ready</p>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/70">
+                    Secure
+                  </h3>
+                  <p className="text-sm font-bold text-white leading-tight">
+                    14-day offline pack ready
+                  </p>
                 </div>
                 <button
                   onClick={() => navigate("/offline-pack")}
@@ -281,7 +332,9 @@ const StudentHome = () => {
           <div>
             <p className="text-sm opacity-80">Current Reading Level</p>
             <p className="text-2xl font-extrabold mt-1">
-              {getStudentFriendlyLevel(profileLevel ?? analysis?.level ?? "Instructional")}
+              {getStudentFriendlyLevel(
+                profileLevel ?? analysis?.level ?? "Instructional",
+              )}
             </p>
             <div className="flex items-center gap-1 mt-2 text-sm opacity-90">
               <TrendingUp className="w-4 h-4" />
@@ -300,14 +353,17 @@ const StudentHome = () => {
           <div className="bg-primary-foreground h-2 rounded-full w-3/5 transition-all" />
         </div>
         <p className="text-xs mt-2 opacity-70">
-          {analysis?.gap ? `Focus skill: ${analysis.gap}` : "Complete a diagnostic to personalize your path"}
+          {analysis?.gap
+            ? `Focus skill: ${analysis.gap}`
+            : "Complete a diagnostic to personalize your path"}
         </p>
       </motion.div>
 
       {!online && (
         <div className="rounded-2xl bg-muted border border-border p-3 mb-5">
           <p className="text-xs text-muted-foreground">
-            You are offline. You can still use the Offline Pack and keep practicing. We will sync saved progress when you are back online.
+            You are offline. You can still use the Offline Pack and keep
+            practicing. We will sync saved progress when you are back online.
           </p>
         </div>
       )}
@@ -352,10 +408,15 @@ const StudentHome = () => {
           transition={{ delay: 0.25 }}
           className="rounded-2xl bg-card border border-border p-5 mb-5"
         >
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Assigned Readings</p>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Assigned Readings
+          </p>
           <div className="space-y-2 mt-3">
             {assignedMaterials.slice(0, 5).map((m) => (
-              <div key={m.title} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+              <div
+                key={m.title}
+                className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
+              >
                 <BookOpen className="w-4 h-4 text-kinaiya-blue" />
                 <span className="text-sm text-foreground">{m.title}</span>
               </div>
@@ -375,11 +436,15 @@ const StudentHome = () => {
             onClick={f.action}
             className="flex flex-col items-start gap-3 p-5 rounded-2xl bg-card border border-border active:scale-[0.97] transition-transform text-left"
           >
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${f.color}`}>
+            <div
+              className={`w-11 h-11 rounded-xl flex items-center justify-center ${f.color}`}
+            >
               <f.icon className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-display font-bold text-foreground text-sm">{f.label}</p>
+              <p className="font-display font-bold text-foreground text-sm">
+                {f.label}
+              </p>
               <p className="text-xs text-muted-foreground">{f.desc}</p>
             </div>
           </motion.button>
@@ -390,17 +455,22 @@ const StudentHome = () => {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`mt-6 rounded-2xl border p-5 shadow-sm transition-all duration-500 ${stormAlertActive
-          ? "bg-gradient-to-br from-kinaiya-red-light to-card border-kinaiya-red/30"
-          : "bg-card border-border"
-          }`}
+        className={`mt-6 rounded-2xl border p-5 shadow-sm transition-all duration-500 ${
+          stormAlertActive
+            ? "bg-gradient-to-br from-kinaiya-red-light to-card border-kinaiya-red/30"
+            : "bg-card border-border"
+        }`}
       >
-        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Today's Story</p>
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+          Today's Story
+        </p>
         <p className="font-display font-bold text-foreground mt-2">
-          "The Seven Tribes of Bukidnon"
+          "The Highlands of Bukidnon"
         </p>
         <p className="text-sm text-muted-foreground mt-1">
-          Learn about the Higaonon, Talaandig, and the other guardians of our sacred mountains.
+          Learn about the indigenous communities of Bukidnon who protect the
+          land, the forests, and their cultural traditions for future
+          generations.
         </p>
         <button
           onClick={() => navigate("/diagnostic")}

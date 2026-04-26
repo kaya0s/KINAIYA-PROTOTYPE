@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, Delete, Gamepad2, RefreshCcw, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Delete,
+  Gamepad2,
+  RefreshCcw,
+  XCircle,
+} from "lucide-react";
 import type { AnalyzeResponse } from "@/lib/kinaiyaApi";
-import { insertInterventionSessionByCode, updateStudentProfileByCode } from "@/lib/kinaiyaDb";
+import {
+  insertInterventionSessionByCode,
+  updateStudentProfileByCode,
+} from "@/lib/kinaiyaDb";
 import { enqueueSession } from "@/lib/offlineQueue";
 
 const LAST_ANALYSIS_KEY = "kinaiya_last_analysis_v1";
@@ -12,7 +22,11 @@ const STUDENT_SESSION_KEY = "kinaiya_student_session_v1";
 type WordRound = {
   word: string;
   hint: string;
-  category: "short_vowels" | "blends" | "digraphs" | "long_vowels";
+  category:
+    | "context_vocab"
+    | "multisyllabic"
+    | "content_words"
+    | "academic_vocab";
 };
 
 type RoundResult = {
@@ -25,10 +39,12 @@ type RoundResult = {
 
 const pickCategoryFromGap = (gap: string): WordRound["category"] => {
   const g = gap.toLowerCase();
-  if (/(long vowel|vowel team|magic e|silent e)/.test(g)) return "long_vowels";
-  if (/(digraph|sh|ch|th|ph)/.test(g)) return "digraphs";
-  if (/(blend|cluster|consonant)/.test(g)) return "blends";
-  return "short_vowels";
+  if (/(vocabulary|context clue|main idea)/.test(g)) return "context_vocab";
+  if (/(decoding|multi.syllabic|vowel pattern)/.test(g)) return "multisyllabic";
+  if (/(comprehension|inference|detail)/.test(g)) return "academic_vocab";
+  if (/(fluency|oral reading|expression|phonics|consonant|vowel team)/.test(g))
+    return "content_words";
+  return "content_words";
 };
 
 const shuffle = <T,>(items: T[]) => {
@@ -46,7 +62,9 @@ const buildTiles = (word: string) => {
   const letters = word.toLowerCase().split("");
   const alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
   const distractorCount = Math.min(6, Math.max(2, 10 - letters.length));
-  const distractors = shuffle(alphabet.filter((c) => !letters.includes(c))).slice(0, distractorCount);
+  const distractors = shuffle(
+    alphabet.filter((c) => !letters.includes(c)),
+  ).slice(0, distractorCount);
   return shuffle(uniq([...letters, ...distractors]));
 };
 
@@ -68,56 +86,108 @@ const WordGames = () => {
     const gap = analysis?.gap || "";
     const category = pickCategoryFromGap(gap);
 
-    const shortVowels: Array<{ word: string; hint: string }> = [
-      { word: "cat", hint: "A small pet that says meow." },
-      { word: "sun", hint: "The bright star in the sky." },
-      { word: "pin", hint: "A small sharp object used to hold things." },
-      { word: "bed", hint: "You sleep on it." },
-      { word: "mop", hint: "Used to clean the floor." },
-      { word: "cup", hint: "You drink from it." },
-      { word: "bag", hint: "You carry things in it." },
-      { word: "fish", hint: "An animal that swims." },
+    const contextVocab: Array<{ word: string; hint: string }> = [
+      {
+        word: "fertile",
+        hint: "Land that is rich and good for growing crops.",
+      },
+      {
+        word: "harvest",
+        hint: "The time when crops are gathered from the fields.",
+      },
+      {
+        word: "plateau",
+        hint: "A flat area of land that is higher than the land around it.",
+      },
+      {
+        word: "sacred",
+        hint: "Something that is holy or very important to a group of people.",
+      },
+      { word: "ancient", hint: "Very old; from a time long ago." },
+      {
+        word: "culture",
+        hint: "The traditions, beliefs, and way of life of a group of people.",
+      },
+      { word: "forest", hint: "A large area of land covered with trees." },
+      { word: "region", hint: "A large area of land with similar features." },
     ];
 
-    const blends: Array<{ word: string; hint: string }> = [
-      { word: "stop", hint: "To pause and not move." },
-      { word: "plan", hint: "A set of steps you will follow." },
-      { word: "flag", hint: "A cloth symbol for a country or group." },
-      { word: "grab", hint: "To take quickly with your hand." },
-      { word: "clap", hint: "To hit your hands together." },
+    const multisyllabic: Array<{ word: string; hint: string }> = [
+      {
+        word: "highland",
+        hint: "An area of land that is high above sea level.",
+      },
+      {
+        word: "watershed",
+        hint: "An area of land that drains water into a river or lake.",
+      },
+      {
+        word: "tradition",
+        hint: "A custom or belief passed down from generation to generation.",
+      },
+      {
+        word: "community",
+        hint: "A group of people who live in the same area.",
+      },
+      { word: "ancestor", hint: "A family member who lived a long time ago." },
     ];
 
-    const digraphs: Array<{ word: string; hint: string }> = [
-      { word: "ship", hint: "A big boat." },
-      { word: "chat", hint: "To talk with someone." },
-      { word: "thin", hint: "Not thick." },
-      { word: "math", hint: "A school subject about numbers." },
-      { word: "shed", hint: "A small building for tools." },
+    const contentWords: Array<{ word: string; hint: string }> = [
+      { word: "mountain", hint: "A very high and steep hill." },
+      {
+        word: "village",
+        hint: "A small community of people in the countryside.",
+      },
+      {
+        word: "bamboo",
+        hint: "A tall, fast-growing plant used for building and making things.",
+      },
+      {
+        word: "spring",
+        hint: "A place where water naturally flows out of the ground.",
+      },
+      {
+        word: "harvest",
+        hint: "The process of gathering ripe crops from the fields.",
+      },
     ];
 
-    const longVowels: Array<{ word: string; hint: string }> = [
-      { word: "cake", hint: "A sweet dessert." },
-      { word: "bike", hint: "A two-wheeled vehicle you ride." },
-      { word: "home", hint: "The place where you live." },
-      { word: "rain", hint: "Water that falls from the sky." },
-      { word: "seed", hint: "A tiny part that grows into a plant." },
+    const academicVocab: Array<{ word: string; hint: string }> = [
+      {
+        word: "explain",
+        hint: "To make something clear so others can understand it.",
+      },
+      {
+        word: "describe",
+        hint: "To tell what something looks like or what happened.",
+      },
+      {
+        word: "compare",
+        hint: "To look at how two things are alike or different.",
+      },
+      { word: "predict", hint: "To say what you think will happen next." },
+      { word: "identify", hint: "To find and name something specific." },
     ];
 
-    const bankByCategory: Record<WordRound["category"], Array<{ word: string; hint: string }>> = {
-      short_vowels: shortVowels,
-      blends,
-      digraphs,
-      long_vowels: longVowels,
+    const bankByCategory: Record<
+      WordRound["category"],
+      Array<{ word: string; hint: string }>
+    > = {
+      context_vocab: contextVocab,
+      multisyllabic: multisyllabic,
+      content_words: contentWords,
+      academic_vocab: academicVocab,
     };
 
     const base = bankByCategory[category];
-    const support = shortVowels;
+    const support = contextVocab;
     const pool =
-      (analysis?.level as string === "Frustration" || analysis?.level === "Frustrational")
+      (analysis?.level as string) === "Frustration" ||
+      analysis?.level === "Frustrational"
         ? [...base, ...support]
         : analysis?.level === "Instructional"
-          ? [...base, ...digraphs, ...support]
-          : [...base, ...digraphs, ...blends, ...support];
+          ? [...base, ...contentWords, ...support]
+          : [...base, ...contentWords, ...multisyllabic, ...support];
 
     return shuffle(pool)
       .slice(0, 10)
@@ -129,7 +199,10 @@ const WordGames = () => {
   const [revealed, setRevealed] = useState<boolean[]>([]);
   const [attempts, setAttempts] = useState(0);
   const [results, setResults] = useState<RoundResult[]>([]);
-  const [feedback, setFeedback] = useState<{ kind: "correct" | "wrong"; text: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    kind: "correct" | "wrong";
+    text: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const roundStartRef = useRef<number>(Date.now());
 
@@ -214,7 +287,13 @@ const WordGames = () => {
       setFeedback({ kind: "correct", text: "Correct! Nice work." });
       setResults((prev) => [
         ...prev,
-        { word: current.word, built: builtWord, correct: true, attempts: nextAttempts, timeMs },
+        {
+          word: current.word,
+          built: builtWord,
+          correct: true,
+          attempts: nextAttempts,
+          timeMs,
+        },
       ]);
       setTimeout(() => setRoundIndex((i) => i + 1), 550);
       return;
@@ -226,7 +305,16 @@ const WordGames = () => {
     setResults((prev) => {
       const existing = prev.find((r) => r.word === current.word);
       if (existing) return prev;
-      return [...prev, { word: current.word, built: builtWord, correct: false, attempts: nextAttempts, timeMs }];
+      return [
+        ...prev,
+        {
+          word: current.word,
+          built: builtWord,
+          correct: false,
+          attempts: nextAttempts,
+          timeMs,
+        },
+      ];
     });
   };
 
@@ -237,7 +325,9 @@ const WordGames = () => {
     for (const r of results) unique.set(r.word, r);
     const items = Array.from(unique.values());
     const correctCount = items.filter((r) => r.correct).length;
-    const avgTimeMs = items.length ? Math.round(items.reduce((sum, r) => sum + r.timeMs, 0) / items.length) : 0;
+    const avgTimeMs = items.length
+      ? Math.round(items.reduce((sum, r) => sum + r.timeMs, 0) / items.length)
+      : 0;
     return {
       total,
       completed: items.length,
@@ -251,11 +341,13 @@ const WordGames = () => {
   const saveSession = async () => {
     if (!analysis || !summary) return;
     const raw = localStorage.getItem(STUDENT_SESSION_KEY);
-    const session = raw ? (JSON.parse(raw) as { classCode?: string; studentId?: string }) : null;
+    const session = raw
+      ? (JSON.parse(raw) as { classCode?: string; studentId?: string })
+      : null;
     if (!session?.classCode || !session?.studentId) return;
 
     setSaving(true);
-    const masteryAchieved = summary.accuracy >= 80;
+    const masteryAchieved = summary.accuracy >= 75;
     const gap = analysis.gap || "Phonics practice";
 
     const payload = {
@@ -285,8 +377,12 @@ const WordGames = () => {
       await insertInterventionSessionByCode(payload);
       if (masteryAchieved) {
         // Promote student after high accuracy in English games
-        const currentLevel = (analysis.level as string) === "Frustration" ? "Frustrational" : analysis.level;
-        const nextLevel = currentLevel === "Frustrational" ? "Instructional" : "Independent";
+        const currentLevel =
+          (analysis.level as string) === "Frustration"
+            ? "Frustrational"
+            : analysis.level;
+        const nextLevel =
+          currentLevel === "Frustrational" ? "Instructional" : "Independent";
         await updateStudentProfileByCode({
           code: session.classCode,
           studentId: session.studentId,
@@ -311,17 +407,28 @@ const WordGames = () => {
   return (
     <div className="mobile-container bg-background px-5 pb-8 min-h-screen flex flex-col">
       <div className="flex items-center gap-3 pt-6 pb-4">
-        <button onClick={() => navigate("/student")} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center">
+        <button
+          onClick={() => navigate("/student")}
+          className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center"
+        >
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <div>
-          <h1 className="font-display font-bold text-foreground text-lg">Word Games</h1>
-          <p className="text-xs text-muted-foreground">Build the word (English phonics)</p>
+          <h1 className="font-display font-bold text-foreground text-lg">
+            Word Games
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Build the word (English phonics)
+          </p>
         </div>
       </div>
 
       {rounds.length === 0 ? (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-card border border-border p-5">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl bg-card border border-border p-5"
+        >
           <p className="text-sm text-muted-foreground leading-relaxed">
             Loading game...
           </p>
@@ -334,24 +441,40 @@ const WordGames = () => {
               animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl bg-kinaiya-blue-light border border-kinaiya-blue/20 p-4 mb-4"
             >
-              <p className="text-sm text-foreground font-bold">No diagnostic found</p>
+              <p className="text-sm text-foreground font-bold">
+                No diagnostic found
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Using a baseline English phonics set. Take a diagnostic later to personalize.
+                Using a baseline English phonics set. Take a diagnostic later to
+                personalize.
               </p>
             </motion.div>
           )}
           {!current || (summary && summary.completed >= summary.total) ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-card border border-border p-5">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl bg-card border border-border p-5"
+            >
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-kinaiya-green" />
-                <p className="text-sm font-bold text-foreground">Session Complete</p>
+                <p className="text-sm font-bold text-foreground">
+                  Session Complete
+                </p>
               </div>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                Accuracy: <span className="text-foreground font-bold">{summary?.accuracy ?? 0}%</span>{" "}
-                <span className="text-muted-foreground">({summary?.correctCount ?? 0}/{summary?.total ?? 0})</span>
+                Accuracy:{" "}
+                <span className="text-foreground font-bold">
+                  {summary?.accuracy ?? 0}%
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  ({summary?.correctCount ?? 0}/{summary?.total ?? 0})
+                </span>
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Avg time: {summary ? `${Math.round(summary.avgTimeMs / 1000)}s` : "0s"} {analysis && saving ? "• saving..." : ""}
+                Avg time:{" "}
+                {summary ? `${Math.round(summary.avgTimeMs / 1000)}s` : "0s"}{" "}
+                {analysis && saving ? "• saving..." : ""}
               </p>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
@@ -383,23 +506,35 @@ const WordGames = () => {
             </motion.div>
           ) : (
             <>
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-card border border-border p-5 mb-4">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl bg-card border border-border p-5 mb-4"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Gamepad2 className="w-4 h-4 text-kinaiya-purple" />
-                    <p className="text-sm font-bold text-foreground">Build the Word</p>
+                    <p className="text-sm font-bold text-foreground">
+                      Build the Word
+                    </p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Round {Math.min(roundIndex + 1, rounds.length)}/{rounds.length}
+                    Round {Math.min(roundIndex + 1, rounds.length)}/
+                    {rounds.length}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Hint: <span className="text-foreground font-medium">{current.hint}</span>
+                  Hint:{" "}
+                  <span className="text-foreground font-medium">
+                    {current.hint}
+                  </span>
                 </p>
               </motion.div>
 
               <div className="rounded-2xl bg-card border border-border p-5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Your answer</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Your answer
+                </p>
                 <div className="flex items-center justify-center gap-2 mt-3">
                   {built.map((c, i) => (
                     <button
@@ -413,7 +548,9 @@ const WordGames = () => {
                         });
                       }}
                       className={`w-10 h-12 rounded-xl border text-lg font-extrabold font-display flex items-center justify-center ${
-                        revealed[i] ? "bg-kinaiya-blue-light border-kinaiya-blue/30 text-kinaiya-blue" : "bg-background border-border text-foreground"
+                        revealed[i]
+                          ? "bg-kinaiya-blue-light border-kinaiya-blue/30 text-kinaiya-blue"
+                          : "bg-background border-border text-foreground"
                       }`}
                       aria-label={`slot-${i + 1}`}
                     >
@@ -466,12 +603,17 @@ const WordGames = () => {
                       ) : (
                         <XCircle className="w-4 h-4 text-kinaiya-red" />
                       )}
-                      <p className="text-sm font-bold text-foreground">{feedback.text}</p>
+                      <p className="text-sm font-bold text-foreground">
+                        {feedback.text}
+                      </p>
                     </div>
                     {attempts >= 2 && feedback.kind === "wrong" && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Tip: the first letter is{" "}
-                        <span className="text-foreground font-bold">{current.word[0].toUpperCase()}</span>.
+                        <span className="text-foreground font-bold">
+                          {current.word[0].toUpperCase()}
+                        </span>
+                        .
                       </p>
                     )}
                   </motion.div>

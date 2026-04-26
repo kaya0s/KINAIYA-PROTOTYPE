@@ -1,12 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Mic, ArrowLeft, Volume2, CheckCircle, Circle, BookOpen } from "lucide-react";
-import micImg from "@/assets/mic-illustration.png";
+import {
+  Mic,
+  ArrowLeft,
+  Volume2,
+  CheckCircle,
+  Circle,
+  BookOpen,
+} from "lucide-react";
+import boyReadingImg from "@/assets/boy-reading.png";
 import type { AnalyzeResponse } from "@/lib/kinaiyaApi";
 
-type SpeechRecognitionResultLike = { isFinal: boolean; 0: { transcript: string } };
-type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<SpeechRecognitionResultLike> };
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
 type SpeechRecognitionErrorEventLike = { error?: string; message?: string };
 type SpeechRecognitionLike = {
   lang: string;
@@ -28,14 +41,21 @@ type PassagePart =
 const tokenize = (text: string) =>
   (text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) ?? []).filter(Boolean);
 
-const computeReadingProgress = (expectedWords: string[], spokenWords: string[]) => {
-  if (expectedWords.length === 0 || spokenWords.length === 0) return { progress: 0, errors: [] };
+const computeReadingProgress = (
+  expectedWords: string[],
+  spokenWords: string[],
+) => {
+  if (expectedWords.length === 0 || spokenWords.length === 0)
+    return { progress: 0, errors: [] };
 
   let expectedIndex = 0;
   let spokenIndex = 0;
   const errors: number[] = [];
 
-  while (expectedIndex < expectedWords.length && spokenIndex < spokenWords.length) {
+  while (
+    expectedIndex < expectedWords.length &&
+    spokenIndex < spokenWords.length
+  ) {
     if (expectedWords[expectedIndex] === spokenWords[spokenIndex]) {
       expectedIndex += 1;
       spokenIndex += 1;
@@ -105,35 +125,60 @@ const sttErrorMessage = (code?: string) => {
 };
 
 const passage = {
-  id: "bukidnon-seven-tribes",
+  id: "bukidnon-highlands",
   lang: "English",
-  title: "The Seven Tribes of Bukidnon",
-  text: `Bukidnon is home to seven unique tribes. They are the Higaonon, Talaandig, Manobo, Matigsalug, Tigwahanon, Bukidnon, and Umayamnon. Each tribe has its own tradition and language. They live in harmony with nature and protect the sacred mountains. During Kaamulan, the tribes come together to dance and sing. It is a time to thank the Great Spirit for a good harvest. These tribes are the true guardians of the land’s history and culture.`,
+  title: "The Highlands of Bukidnon",
+  text: `The highlands of Bukidnon in Mindanao are among the richest regions in the Philippines. Fertile plateaus rise more than a thousand meters above sea level, supporting vast farms of pineapple and corn. Indigenous communities have lived here for many generations and deeply understand the land's natural cycles. Their traditions teach environmental stewardship — caring for the forests as a duty passed down by their ancestors. Conservation groups now work with these communities to protect Mount Kitanglad, a vital watershed that supplies fresh water to millions of people in Bukidnon and Cagayan de Oro. Together, they safeguard both the environment and their cultural identity.`,
   questions: [
     {
-      q: "How many unique tribes live in Bukidnon?",
-      choices: ["Three", "Five", "Seven", "Ten"],
+      q: "What does the word 'stewardship' most likely mean based on the passage?",
+      choices: [
+        "Ignoring the forests",
+        "Responsible care and management of something",
+        "A type of farming",
+        "A government title",
+      ],
+      answer: 1,
+    },
+    {
+      q: "Why do indigenous communities deeply understand the land's natural cycles?",
+      choices: [
+        "They read about it in books",
+        "They have lived on the land for many generations",
+        "The government taught them",
+        "They moved there recently",
+      ],
+      answer: 1,
+    },
+    {
+      q: "What is the main idea of the passage?",
+      choices: [
+        "Pineapple and corn are important crops",
+        "Bukidnon's highlands are rich in culture, nature, and community care",
+        "Mount Kitanglad is a dangerous mountain",
+        "Cagayan de Oro is a large city",
+      ],
+      answer: 1,
+    },
+    {
+      q: "What is Mount Kitanglad described as in the passage?",
+      choices: [
+        "A pineapple farm",
+        "A tourist destination",
+        "A vital watershed that supplies fresh water",
+        "A government building",
+      ],
       answer: 2,
     },
     {
-      q: "Which word describes how the tribes live with nature?",
-      choices: ["Harmony", "Fear", "Conflict", "Distance"],
-      answer: 0,
-    },
-    {
-      q: "What is the name of the festival where the tribes come together?",
-      choices: ["Sinulog", "Kaamulan", "Panagbenga", "Kadayawan"],
-      answer: 1,
-    },
-    {
-      q: "Why do the tribes dance and sing during the festival?",
-      choices: ["To compete with others", "To thank the Great Spirit for harvest", "To exercise", "To welcome visitors"],
-      answer: 1,
-    },
-    {
-      q: "What are the tribes considered to be?",
-      choices: ["Visitors of the land", "Guardians of history and culture", "Farmers of the plains", "Builders of the city"],
-      answer: 1,
+      q: "What can you conclude about the relationship between the communities and the land?",
+      choices: [
+        "They have no connection to the land",
+        "They see the land only as a source of money",
+        "They have a deep, respectful, and protective relationship with the land",
+        "They want to sell the land to companies",
+      ],
+      answer: 2,
     },
   ],
 };
@@ -141,26 +186,47 @@ const passage = {
 const severityFromScore = (score: number): "low" | "medium" | "high" =>
   score >= 85 ? "low" : score >= 65 ? "medium" : "high";
 
-const pickGap = (args: { accuracyRate: number; comprehensionScore: number; wcpm: number; miscueCount: number }) => {
-  if (args.comprehensionScore < 55) return "Comprehension: identifying key details";
-  if (args.accuracyRate < 80) return "Decoding: long vowel sounds (a, e, i)";
-  if (args.wcpm < 75) return "Fluency: pacing and phrasing";
-  if (args.miscueCount > 6) return "Phonics: blending consonant clusters";
-  return "General reading support";
+const pickGap = (args: {
+  accuracyRate: number;
+  comprehensionScore: number;
+  wcpm: number;
+  miscueCount: number;
+}) => {
+  if (args.comprehensionScore < 75)
+    return "Comprehension: identifying main idea and key details";
+  if (args.accuracyRate < 90)
+    return "Decoding: multi-syllabic words and vowel patterns";
+  if (args.wcpm < 100) return "Fluency: oral reading rate and expression";
+  if (args.miscueCount > 5)
+    return "Phonics: vowel teams and consonant clusters";
+  return "Comprehension: making inferences from the passage";
 };
 
-const promoteByRules = (args: { accuracyRate: number; comprehensionScore: number; wcpm: number }): AnalyzeResponse["level"] => {
+const promoteByRules = (args: {
+  accuracyRate: number;
+  comprehensionScore: number;
+  wcpm: number;
+}): AnalyzeResponse["level"] => {
   const accuracyLevel =
-    args.accuracyRate >= 95 ? "Independent" :
-      args.accuracyRate >= 90 ? "Instructional" : "Frustrational";
+    args.accuracyRate >= 97
+      ? "Independent"
+      : args.accuracyRate >= 90
+        ? "Instructional"
+        : "Frustrational";
 
   const wcpmLevel =
-    args.wcpm >= 110 ? "Independent" :
-      args.wcpm >= 80 ? "Instructional" : "Frustrational";
+    args.wcpm >= 140
+      ? "Independent"
+      : args.wcpm >= 100
+        ? "Instructional"
+        : "Frustrational";
 
   const compLevel =
-    args.comprehensionScore >= 80 ? "Independent" :
-      args.comprehensionScore >= 55 ? "Instructional" : "Frustrational";
+    args.comprehensionScore >= 90
+      ? "Independent"
+      : args.comprehensionScore >= 75
+        ? "Instructional"
+        : "Frustrational";
 
   const order = ["Frustrational", "Instructional", "Independent"] as const;
   const min = (a: AnalyzeResponse["level"], b: AnalyzeResponse["level"]) =>
@@ -177,39 +243,98 @@ const mockAnalyze = (args: {
   secondsTaken: number;
   comprehensionScore: number;
 }): AnalyzeResponse => {
-  const wcpm = Math.round((Math.max(1, args.wordCount) / Math.max(1, args.secondsTaken)) * 60);
-  const accuracyRate = Math.max(55, Math.min(100, Math.round(((args.wordCount - args.miscueCount) / Math.max(1, args.wordCount)) * 100)));
-  const level = promoteByRules({ accuracyRate, comprehensionScore: args.comprehensionScore, wcpm });
-  const gap = pickGap({ accuracyRate, comprehensionScore: args.comprehensionScore, wcpm, miscueCount: args.miscueCount });
+  const wcpm = Math.round(
+    (Math.max(1, args.wordCount) / Math.max(1, args.secondsTaken)) * 60,
+  );
+  const accuracyRate = Math.max(
+    55,
+    Math.min(
+      100,
+      Math.round(
+        ((args.wordCount - args.miscueCount) / Math.max(1, args.wordCount)) *
+          100,
+      ),
+    ),
+  );
+  const level = promoteByRules({
+    accuracyRate,
+    comprehensionScore: args.comprehensionScore,
+    wcpm,
+  });
+  const gap = pickGap({
+    accuracyRate,
+    comprehensionScore: args.comprehensionScore,
+    wcpm,
+    miscueCount: args.miscueCount,
+  });
 
   const strengths = [
-    level === "Independent" ? "Confident reading pace" : "Willingness to keep trying",
-    args.comprehensionScore >= 70 ? "Understands main idea" : "Answers some questions correctly",
+    level === "Independent"
+      ? "Confident reading pace"
+      : "Willingness to keep trying",
+    args.comprehensionScore >= 70
+      ? "Understands main idea"
+      : "Answers some questions correctly",
   ];
 
   const areas = [
-    { issue: "Accuracy while decoding unfamiliar words", severity: severityFromScore(accuracyRate) },
-    { issue: "Reading fluency (pacing and phrasing)", severity: severityFromScore(Math.min(100, Math.round((wcpm / 110) * 100))) },
+    {
+      issue: "Accuracy while decoding unfamiliar words",
+      severity: severityFromScore(accuracyRate),
+    },
+    {
+      issue: "Reading fluency (pacing and phrasing)",
+      severity: severityFromScore(
+        Math.min(100, Math.round((wcpm / 110) * 100)),
+      ),
+    },
     { issue: gap, severity: "medium" as const },
   ];
 
-  const exerciseType =
-    /vowel|phonics|decoding/i.test(gap) ? "phonics_drill" :
-      /fluency|pacing/i.test(gap) ? "reread" :
-        args.comprehensionScore < 60 ? "fill_blank" : "word_match";
+  const exerciseType = /vowel|phonics|decoding/i.test(gap)
+    ? "phonics_drill"
+    : /fluency|pacing/i.test(gap)
+      ? "reread"
+      : args.comprehensionScore < 75
+        ? "fill_blank"
+        : "word_match";
 
   const interventionContent =
     exerciseType === "phonics_drill"
-      ? ["cake", "bike", "home", "rain", "seed"]
+      ? ["highland", "fertile", "plateau", "watershed", "ancestor"]
       : exerciseType === "reread"
-        ? ["Read the passage again", "Pause at commas", "Use expression"]
+        ? [
+            "Re-read the passage with good pacing",
+            "Pause at commas and periods",
+            "Emphasize important words",
+          ]
         : exerciseType === "word_match"
-          ? ["garden", "sprout", "fence", "sunflower", "patience"]
-          : ["Maria ___ her plants.", "A tiny ___ grew.", "The sprout became a ___ ."];
+          ? [
+              "stewardship",
+              "conservation",
+              "indigenous",
+              "community",
+              "tradition",
+            ]
+          : [
+              "The communities protect the ___.",
+              "Mount Kitanglad is a vital ___.",
+              "Indigenous people care for the ___.",
+            ];
 
-  const mockMiscueObjects: AnalyzeResponse["miscues"] = Array.from({ length: args.miscueCount }).map((_, i) => {
-    const types: AnalyzeResponse["miscues"][number]["type"][] = ["omission", "substitution", "mispronunciation"];
-    const patterns: AnalyzeResponse["miscues"][number]["pattern"][] = ["phonetic", "visual", "semantic"];
+  const mockMiscueObjects: AnalyzeResponse["miscues"] = Array.from({
+    length: args.miscueCount,
+  }).map((_, i) => {
+    const types: AnalyzeResponse["miscues"][number]["type"][] = [
+      "omission",
+      "substitution",
+      "mispronunciation",
+    ];
+    const patterns: AnalyzeResponse["miscues"][number]["pattern"][] = [
+      "phonetic",
+      "visual",
+      "semantic",
+    ];
     return {
       original_word: "word_" + i,
       student_said: i % 2 === 0 ? "..." : "mistake",
@@ -223,8 +348,18 @@ const mockAnalyze = (args: {
     accuracy_rate: accuracyRate,
     comprehension_score: args.comprehensionScore,
     level,
-    level_by_accuracy: accuracyRate >= 95 ? "Independent" : accuracyRate >= 90 ? "Instructional" : "Frustrational",
-    level_by_wcpm: wcpm >= 110 ? "Independent" : wcpm >= 80 ? "Instructional" : "Frustrational",
+    level_by_accuracy:
+      accuracyRate >= 97
+        ? "Independent"
+        : accuracyRate >= 90
+          ? "Instructional"
+          : "Frustrational",
+    level_by_wcpm:
+      wcpm >= 140
+        ? "Independent"
+        : wcpm >= 100
+          ? "Instructional"
+          : "Frustrational",
     data_quality: {
       transcript_present: Boolean(args.studentTranscript.trim()),
       miscues_present: args.miscueCount > 0,
@@ -232,92 +367,192 @@ const mockAnalyze = (args: {
     },
     miscues: mockMiscueObjects,
     gap,
-    pattern_summary: "Prototype demo: highlights common decoding + fluency patterns.",
+    pattern_summary:
+      "Prototype demo: highlights common decoding + fluency patterns.",
     strengths,
     areas_for_improvement: areas,
     intervention: {
       exercise_type: exerciseType,
       target_skill: gap,
-      instructions: "Complete the activity below, then answer the mastery check questions.",
+      instructions:
+        "Complete the activity below, then answer the mastery check questions.",
       content: interventionContent,
       mastery_check_questions: [
-        "What is one thing you will improve next time you read?",
-        "Write one keyword from the story (e.g., garden, sprout).",
+        "What is the main idea of the passage? Write one sentence.",
+        "Find one word you found difficult and explain what it means using clues from the passage.",
       ],
     },
   };
 };
 
-const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+const randInt = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
+const clamp = (n: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, n));
 
-const randomAnalyze = (args: { comprehensionScore: number }): AnalyzeResponse => {
+const buildMockMiscues = (count: number, sourceWords?: string[]) => {
+  const baseWords = sourceWords?.length
+    ? sourceWords
+    : ["highland", "fertile", "community", "watershed", "ancestor"];
+
+  return Array.from({ length: Math.max(0, count) }).map((_, i) => {
+    const originalWord = baseWords[i % baseWords.length];
+    const type = (
+      ["omission", "substitution", "mispronunciation"] as const
+    )[i % 3];
+    const pattern = (["phonetic", "visual", "semantic"] as const)[i % 3];
+
+    return {
+      original_word: originalWord,
+      student_said:
+        type === "omission"
+          ? "..."
+          : type === "substitution"
+            ? `${originalWord.slice(0, Math.max(2, originalWord.length - 2))}x`
+            : `${originalWord}-?`,
+      type,
+      pattern,
+    };
+  });
+};
+
+const randomAnalyze = (args: {
+  comprehensionScore: number;
+}): AnalyzeResponse => {
   const comp = clamp(args.comprehensionScore, 0, 100);
 
   const wcpm =
-    comp >= 80 ? randInt(105, 145)
-      : comp >= 55 ? randInt(78, 112)
-        : randInt(45, 88);
+    comp >= 85
+      ? randInt(118, 155)
+      : comp >= 70
+        ? randInt(95, 128)
+        : comp >= 55
+          ? randInt(78, 108)
+          : randInt(60, 92);
 
   const accuracyRate =
-    comp >= 80 ? randInt(92, 99)
-      : comp >= 55 ? randInt(80, 95)
-        : randInt(65, 86);
+    comp >= 85
+      ? randInt(95, 99)
+      : comp >= 70
+        ? randInt(88, 96)
+        : comp >= 55
+          ? randInt(78, 91)
+          : randInt(66, 84);
 
-  const level = promoteByRules({ accuracyRate, comprehensionScore: comp, wcpm });
-  const miscueCount = level === "Independent" ? randInt(0, 2) : level === "Instructional" ? randInt(1, 5) : randInt(3, 10);
-  const gap = pickGap({ accuracyRate, comprehensionScore: comp, wcpm, miscueCount });
+  const level = promoteByRules({
+    accuracyRate,
+    comprehensionScore: comp,
+    wcpm,
+  });
+  const miscueCount =
+    level === "Independent"
+      ? randInt(0, 2)
+      : level === "Instructional"
+        ? randInt(1, 5)
+        : randInt(3, 10);
+  const gap = pickGap({
+    accuracyRate,
+    comprehensionScore: comp,
+    wcpm,
+    miscueCount,
+  });
+  const miscues = buildMockMiscues(
+    miscueCount,
+    tokenize(passage.text).slice(0, 12),
+  );
 
   const strengths = [
-    level === "Independent" ? "Confident reading pace" : "Willingness to keep trying",
+    level === "Independent"
+      ? "Confident reading pace"
+      : "Willingness to keep trying",
     comp >= 70 ? "Understands main idea" : "Answers some questions correctly",
   ];
 
   const areas = [
-    { issue: "Accuracy while decoding unfamiliar words", severity: severityFromScore(accuracyRate) },
-    { issue: "Reading fluency (pacing and phrasing)", severity: severityFromScore(Math.min(100, Math.round((wcpm / 110) * 100))) },
+    {
+      issue: "Accuracy while decoding unfamiliar words",
+      severity: severityFromScore(accuracyRate),
+    },
+    {
+      issue: "Reading fluency (pacing and phrasing)",
+      severity: severityFromScore(
+        Math.min(100, Math.round((wcpm / 110) * 100)),
+      ),
+    },
     { issue: gap, severity: "medium" as const },
   ];
 
-  const exerciseType =
-    /vowel|phonics|decoding/i.test(gap) ? "phonics_drill" :
-      /fluency|pacing/i.test(gap) ? "reread" :
-        comp < 60 ? "fill_blank" : "word_match";
+  const exerciseType = /vowel|phonics|decoding/i.test(gap)
+    ? "phonics_drill"
+    : /fluency|pacing/i.test(gap)
+      ? "reread"
+      : comp < 75
+        ? "fill_blank"
+        : "word_match";
 
   const interventionContent =
     exerciseType === "phonics_drill"
-      ? ["tribe", "dance", "mount", "sacred", "land"]
+      ? ["highland", "fertile", "plateau", "watershed", "ancestor"]
       : exerciseType === "reread"
-        ? ["Read the tribal names clearly", "Focus on the word 'harmony'", "Read with a steady rhythm like a drum"]
+        ? [
+            "Re-read the passage with good pacing",
+            "Pause at commas and periods",
+            "Emphasize important words",
+          ]
         : exerciseType === "word_match"
-          ? ["tradition", "culture", "guardian", "harmony", "sacred"]
-          : ["There are ___ unique tribes.", "They live in ___ with nature.", "The ___ mountains are protected."];
+          ? [
+              "stewardship",
+              "conservation",
+              "indigenous",
+              "community",
+              "tradition",
+            ]
+          : [
+              "The communities protect the ___.",
+              "Mount Kitanglad is a vital ___.",
+              "Indigenous people care for the ___.",
+            ];
 
   return {
     wcpm,
     accuracy_rate: accuracyRate,
     comprehension_score: comp,
     level,
-    level_by_accuracy: accuracyRate >= 95 ? "Independent" : accuracyRate >= 90 ? "Instructional" : "Frustrational",
-    level_by_wcpm: wcpm >= 110 ? "Independent" : wcpm >= 80 ? "Instructional" : "Frustrational",
+    level_by_accuracy:
+      accuracyRate >= 97
+        ? "Independent"
+        : accuracyRate >= 90
+          ? "Instructional"
+          : "Frustrational",
+    level_by_wcpm:
+      wcpm >= 140
+        ? "Independent"
+        : wcpm >= 100
+          ? "Instructional"
+          : "Frustrational",
     data_quality: {
       transcript_present: false,
       miscues_present: miscueCount > 0,
-      notes: "Prototype demo: speech-to-text unavailable/empty transcript, so results are estimated.",
+      notes:
+        "Prototype demo: speech-to-text unavailable/empty transcript, so results are estimated.",
     },
-    miscues: [],
+    miscues,
     gap,
-    pattern_summary: "Prototype demo: results estimated without a transcript.",
+    pattern_summary:
+      miscueCount > 0
+        ? `Prototype estimate: ${miscueCount} likely miscues based on the student's score pattern, with the main risk in ${gap.toLowerCase()}.`
+        : "Prototype estimate: reading appears steady with minimal likely miscues.",
     strengths,
     areas_for_improvement: areas,
     intervention: {
       exercise_type: exerciseType,
       target_skill: gap,
-      instructions: "Complete the activity below, then answer the mastery check questions.",
+      instructions:
+        "Complete the activity below, then answer the mastery check questions.",
       content: interventionContent,
       mastery_check_questions: [
-        "What is one thing you will improve next time you read?",
-        "Write one keyword from the story (e.g., garden, sprout).",
+        "What is the main idea of the passage? Write one sentence.",
+        "Find one word you found difficult and explain what it means using clues from the passage.",
       ],
     },
   };
@@ -325,7 +560,9 @@ const randomAnalyze = (args: { comprehensionScore: number }): AnalyzeResponse =>
 
 const Diagnostic = () => {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<"intro" | "reading" | "recording" | "comprehension" | "analyzing">("intro");
+  const [phase, setPhase] = useState<
+    "intro" | "reading" | "recording" | "comprehension" | "analyzing"
+  >("intro");
   const phaseRef = useRef(phase);
   const [timer, setTimer] = useState(0);
   const [currentQ, setCurrentQ] = useState(0);
@@ -355,8 +592,6 @@ const Diagnostic = () => {
   useEffect(() => {
     setAnswers(new Array(passage.questions.length).fill(null));
   }, []);
-
-
 
   useEffect(() => {
     return () => {
@@ -408,7 +643,8 @@ const Diagnostic = () => {
       // 1. Omission: student skipped an expected word
       if (i + 1 < expected.length && actual[j] === expected[i + 1]) {
         count += 1;
-        if (lines.length < 12) lines.push(`- Word #${i + 1}: '${expected[i]}' (omission)`);
+        if (lines.length < 12)
+          lines.push(`- Word #${i + 1}: '${expected[i]}' (omission)`);
         i += 1;
         continue;
       }
@@ -416,14 +652,18 @@ const Diagnostic = () => {
       // 2. Insertion: student added a word not in text
       if (j + 1 < actual.length && actual[j + 1] === expected[i]) {
         count += 1;
-        if (lines.length < 12) lines.push(`- Extra: student said '${actual[j]}' (insertion)`);
+        if (lines.length < 12)
+          lines.push(`- Extra: student said '${actual[j]}' (insertion)`);
         j += 1;
         continue;
       }
 
       // 3. Substitution: student replaced the word
       count += 1;
-      if (lines.length < 12) lines.push(`- Word #${i + 1}: Expected '${expected[i]}' -> '${actual[j]}' (substitution)`);
+      if (lines.length < 12)
+        lines.push(
+          `- Word #${i + 1}: Expected '${expected[i]}' -> '${actual[j]}' (substitution)`,
+        );
       i += 1;
       j += 1;
     }
@@ -470,7 +710,8 @@ const Diagnostic = () => {
         else interim = `${interim}${text} `;
       }
       const nextFinalTrimmed = nextFinal.trim();
-      if (nextFinalTrimmed !== transcriptRef.current) setTranscript(nextFinalTrimmed);
+      if (nextFinalTrimmed !== transcriptRef.current)
+        setTranscript(nextFinalTrimmed);
       setInterimTranscript(interim.trim());
 
       // Successful stream => clear retry counter + any prior error banner.
@@ -482,14 +723,25 @@ const Diagnostic = () => {
       const e = event as SpeechRecognitionErrorEventLike | undefined;
       const code = e?.error;
 
-      if (sttStoppingRef.current && (code === "aborted" || code === "no-speech")) return;
+      if (
+        sttStoppingRef.current &&
+        (code === "aborted" || code === "no-speech")
+      )
+        return;
 
-      if (code === "network" && phaseRef.current === "recording" && sttRetryCountRef.current < 2) {
+      if (
+        code === "network" &&
+        phaseRef.current === "recording" &&
+        sttRetryCountRef.current < 2
+      ) {
         sttRetryCountRef.current += 1;
         const attempt = sttRetryCountRef.current;
-        setSttError(`Speech recognition network error. Reconnecting… (${attempt}/2)`);
+        setSttError(
+          `Speech recognition network error. Reconnecting… (${attempt}/2)`,
+        );
         stopSpeech();
-        if (sttRetryTimeoutRef.current !== null) window.clearTimeout(sttRetryTimeoutRef.current);
+        if (sttRetryTimeoutRef.current !== null)
+          window.clearTimeout(sttRetryTimeoutRef.current);
         sttRetryTimeoutRef.current = window.setTimeout(() => {
           sttRetryTimeoutRef.current = null;
           startSpeech();
@@ -510,7 +762,9 @@ const Diagnostic = () => {
     try {
       rec.start();
     } catch {
-      setSttError("Speech recognition failed to start. You can still continue without a transcript.");
+      setSttError(
+        "Speech recognition failed to start. You can still continue without a transcript.",
+      );
       recognitionRef.current = null;
     }
   };
@@ -541,7 +795,8 @@ const Diagnostic = () => {
       recordingIntervalRef.current = null;
     }
     stopSpeech();
-    const fullTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.trim();
+    const fullTranscript =
+      `${transcriptRef.current} ${interimTranscriptRef.current}`.trim();
     const built = buildMiscueList(passage.text, fullTranscript);
     setMiscueList(built.list);
     setMiscueCount(built.count);
@@ -601,31 +856,40 @@ const Diagnostic = () => {
       setCurrentQ(currentQ + 1);
     } else {
       const correctCount = newAnswers.filter(
-        (a, i) => a === passage.questions[i].answer
+        (a, i) => a === passage.questions[i].answer,
       ).length;
       const score = Math.round((correctCount / passage.questions.length) * 100);
       setPhase("analyzing");
 
       const secondsTaken = Math.max(1, timer || 30);
-      const readWordCount = Math.max(1, Math.min(wordsReadCount || 0, expectedWords.length || 1));
-      const fullTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.trim();
+      const readWordCount = Math.max(
+        1,
+        Math.min(wordsReadCount || 0, expectedWords.length || 1),
+      );
+      const fullTranscript =
+        `${transcriptRef.current} ${interimTranscriptRef.current}`.trim();
       const hasTranscript = Boolean(fullTranscript);
 
       const analysis = hasTranscript
         ? mockAnalyze({
-          originalText: passage.text,
-          studentTranscript: fullTranscript,
-          miscueCount,
-          wordCount: readWordCount,
-          secondsTaken,
-          comprehensionScore: score,
-        })
+            originalText: passage.text,
+            studentTranscript: fullTranscript,
+            miscueCount,
+            wordCount: readWordCount,
+            secondsTaken,
+            comprehensionScore: score,
+          })
         : randomAnalyze({ comprehensionScore: score });
 
       navigate("/results", {
         state: {
           analysis,
-          diagnostic: { wordCount: readWordCount, secondsTaken, comprehensionScore: score, passageId: passage.id },
+          diagnostic: {
+            wordCount: readWordCount,
+            secondsTaken,
+            comprehensionScore: score,
+            passageId: passage.id,
+          },
         },
       });
     }
@@ -649,7 +913,11 @@ const Diagnostic = () => {
     const analysis = randomAnalyze({ comprehensionScore: compScore });
     analysis.accuracy_rate = accuracyRate;
     analysis.wcpm = wcpm;
-    analysis.level = promoteByRules({ accuracyRate, comprehensionScore: compScore, wcpm });
+    analysis.level = promoteByRules({
+      accuracyRate,
+      comprehensionScore: compScore,
+      wcpm,
+    });
 
     setTimeout(() => {
       navigate("/results", {
@@ -685,8 +953,12 @@ const Diagnostic = () => {
   );
   const wordsReadCount = readingStats.progress;
   const errorIndices = readingStats.errors;
-  const currentWordIndex = Math.min(wordsReadCount, Math.max(0, expectedWords.length - 1));
-  const isDoneReading = expectedWords.length > 0 && wordsReadCount >= expectedWords.length;
+  const currentWordIndex = Math.min(
+    wordsReadCount,
+    Math.max(0, expectedWords.length - 1),
+  );
+  const isDoneReading =
+    expectedWords.length > 0 && wordsReadCount >= expectedWords.length;
   useEffect(() => {
     if (phase === "recording" && isDoneReading) {
       finishRecording();
@@ -697,13 +969,20 @@ const Diagnostic = () => {
     <div className="mobile-container bg-background px-3 pb-8 h-screen overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 pt-6 pb-2 px-2">
-        <button onClick={() => navigate("/student")} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center">
+        <button
+          onClick={() => navigate("/student")}
+          className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center"
+        >
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </button>
         <div>
-          <h1 className="font-display font-bold text-foreground text-lg">Reading Diagnostic</h1>
+          <h1 className="font-display font-bold text-foreground text-lg">
+            Reading Diagnostic
+          </h1>
           {phase === "comprehension" && (
-            <p className="text-xs text-muted-foreground">Comprehension — Question {currentQ + 1}/{passage.questions.length}</p>
+            <p className="text-xs text-muted-foreground">
+              Comprehension — Question {currentQ + 1}/{passage.questions.length}
+            </p>
           )}
         </div>
       </div>
@@ -714,8 +993,13 @@ const Diagnostic = () => {
           {passage.questions.map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all ${i < currentQ ? "bg-primary" : i === currentQ ? "bg-kinaiya-gold" : "bg-muted"
-                }`}
+              className={`h-1.5 flex-1 rounded-full transition-all ${
+                i < currentQ
+                  ? "bg-primary"
+                  : i === currentQ
+                    ? "bg-kinaiya-gold"
+                    : "bg-muted"
+              }`}
             />
           ))}
         </div>
@@ -730,11 +1014,18 @@ const Diagnostic = () => {
             exit={{ opacity: 0 }}
             className="flex-1 flex flex-col items-center justify-center text-center gap-4 py-4"
           >
-            <img src={micImg} alt="Microphone" className="w-24 h-24" />
+            <img
+              src={boyReadingImg}
+              alt="Student reading"
+              className="w-40 h-40 object-contain"
+            />
             <div className="max-w-[280px]">
-              <h2 className="font-display text-lg font-bold text-foreground">AI Voice Diagnostic</h2>
+              <h2 className="font-display text-lg font-bold text-foreground">
+                AI Voice Diagnostic
+              </h2>
               <p className="text-muted-foreground text-xs mt-2 leading-relaxed">
-                Read the passage aloud. Our Edge-AI will analyze your speed, accuracy, and understanding entirely offline.
+                Read the passage aloud. Our Edge-AI will analyze your speed,
+                accuracy, and understanding entirely offline.
               </p>
             </div>
             <button
@@ -755,20 +1046,27 @@ const Diagnostic = () => {
             className="flex-1 flex flex-col gap-4"
           >
             <div className="rounded-2xl bg-card border border-border p-4">
-              <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="flex items-center justify-center gap-2 mb-3">
                 <Volume2 className="w-4 h-4 text-kinaiya-blue" />
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Read this passage aloud
                 </span>
               </div>
-              <p className="font-display font-bold text-foreground text-sm mb-3">{passage.title}</p>
-              <p className="font-body text-base text-foreground leading-relaxed">
-                {passage.text}
-              </p>
+              <div className="rounded-2xl bg-muted/40 border border-border px-5 py-8 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-kinaiya-blue mb-3">
+                  Story Title
+                </p>
+                <p className="font-display font-black text-foreground text-2xl leading-tight">
+                  {passage.title}
+                </p>
+                <p className="mt-4 font-body text-sm text-muted-foreground leading-relaxed">
+                  Tap the microphone to open the full story and begin reading.
+                </p>
+              </div>
             </div>
 
             <p className="text-center text-muted-foreground text-sm">
-              When you're ready, tap the microphone to start recording.
+              When you're ready, tap the microphone to start the assessment.
             </p>
 
             <div className="flex-1 flex items-center justify-center">
@@ -794,10 +1092,12 @@ const Diagnostic = () => {
               <div className="overflow-y-auto pr-1 flex-1 custom-scrollbar">
                 <div className="font-display text-lg text-foreground leading-relaxed">
                   {passageParts.map((part, idx) => {
-                    if (part.kind === "sep") return <span key={idx}>{part.text}</span>;
+                    if (part.kind === "sep")
+                      return <span key={idx}>{part.text}</span>;
 
                     const isRead = part.wordIndex < wordsReadCount;
-                    const isCurrent = part.wordIndex === currentWordIndex && !isDoneReading;
+                    const isCurrent =
+                      part.wordIndex === currentWordIndex && !isDoneReading;
                     const isError = errorIndices.includes(part.wordIndex);
 
                     return (
@@ -821,7 +1121,8 @@ const Diagnostic = () => {
               </div>
               <div className="mt-3 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">
                 <span>
-                  Words: {Math.min(wordsReadCount, expectedWords.length)}/{expectedWords.length}
+                  Words: {Math.min(wordsReadCount, expectedWords.length)}/
+                  {expectedWords.length}
                 </span>
                 <div className="flex items-center gap-1">
                   <div className="w-1 h-1 rounded-full bg-kinaiya-blue animate-pulse" />
@@ -835,7 +1136,9 @@ const Diagnostic = () => {
               <div className="w-full rounded-xl bg-kinaiya-blue/[0.03] border border-kinaiya-blue/10 p-3 min-h-[60px] flex flex-col gap-1">
                 <div className="flex items-center gap-1.5">
                   <Volume2 className="w-2.5 h-2.5 text-kinaiya-blue/50" />
-                  <span className="text-[9px] font-black text-kinaiya-blue/50 uppercase tracking-widest">Voice Log</span>
+                  <span className="text-[9px] font-black text-kinaiya-blue/50 uppercase tracking-widest">
+                    Voice Log
+                  </span>
                 </div>
                 <p className="text-[11px] text-foreground/70 leading-normal italic line-clamp-2">
                   {liveTranscript ? liveTranscript : "Waiting..."}
@@ -905,10 +1208,11 @@ const Diagnostic = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   onClick={() => handleAnswer(idx)}
-                  className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${selectedAnswer === idx
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:border-muted-foreground/30"
-                    }`}
+                  className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                    selectedAnswer === idx
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:border-muted-foreground/30"
+                  }`}
                 >
                   {selectedAnswer === idx ? (
                     <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
@@ -923,12 +1227,15 @@ const Diagnostic = () => {
             <button
               onClick={nextQuestion}
               disabled={selectedAnswer === null}
-              className={`w-full py-4 rounded-2xl font-display font-bold text-lg transition-all ${selectedAnswer !== null
-                ? "bg-gradient-kinaiya text-primary-foreground shadow-kinaiya active:scale-[0.98]"
-                : "bg-muted text-muted-foreground"
-                }`}
+              className={`w-full py-4 rounded-2xl font-display font-bold text-lg transition-all ${
+                selectedAnswer !== null
+                  ? "bg-gradient-kinaiya text-primary-foreground shadow-kinaiya active:scale-[0.98]"
+                  : "bg-muted text-muted-foreground"
+              }`}
             >
-              {currentQ < passage.questions.length - 1 ? "Next Question" : "Submit & View Results"}
+              {currentQ < passage.questions.length - 1
+                ? "Next Question"
+                : "Submit & View Results"}
             </button>
           </motion.div>
         )}
@@ -946,7 +1253,9 @@ const Diagnostic = () => {
               className="w-16 h-16 border-4 border-muted border-t-primary rounded-full"
             />
             <div className="text-center">
-              <h2 className="font-display text-xl font-bold text-foreground">Analyzing Your Results</h2>
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Analyzing Your Results
+              </h2>
               <p className="text-muted-foreground text-sm mt-2">
                 Evaluating reading fluency and comprehension...
               </p>

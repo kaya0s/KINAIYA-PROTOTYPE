@@ -290,29 +290,26 @@ const StudentJoin = () => {
         </Tabs>
 
         {classId && (
-          <div className="space-y-2 pt-2">
-            <div className="text-xs text-muted-foreground">Select your name</div>
-            <select
+            <div className="space-y-2 pt-2">
+              <div className="text-xs text-muted-foreground">Select your name</div>
+              <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
               className="w-full px-3 py-3 rounded-xl bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              {students.length === 0 ? (
-                <option value="">No students yet</option>
-              ) : (
-                students.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))
-              )}
-            </select>
-            {students.length === 0 && (
+              >
+              <option value="">Choose a student...</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                {`👤 ${s.name}`}
+                </option>
+              ))}
+              </select>
+              {students.length === 0 && (
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Your teacher needs to add students to the class roster first.
               </p>
-            )}
-          </div>
+              )}
+            </div>
         )}
 
         {error && (
