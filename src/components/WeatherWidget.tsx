@@ -25,9 +25,10 @@ const weatherIcons: Record<string, typeof Sun> = {
 
 interface WeatherWidgetProps {
   isAlert?: boolean;
+  city?: string;
 }
 
-const WeatherWidget = ({ isAlert }: WeatherWidgetProps) => {
+const WeatherWidget = ({ isAlert, city = "Malaybalay, Bukidnon" }: WeatherWidgetProps) => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -42,13 +43,13 @@ const WeatherWidget = ({ isAlert }: WeatherWidgetProps) => {
         icon: isAlert ? "11" : "02",
         humidity: isAlert ? 95 : 72,
         windSpeed: isAlert ? 55 : 11,
-        city: "Manila",
+        city,
       });
       setLoading(false);
     }, 250);
 
     return () => window.clearTimeout(t);
-  }, [isAlert]);
+  }, [city, isAlert]);
 
   if (loading) {
     return (

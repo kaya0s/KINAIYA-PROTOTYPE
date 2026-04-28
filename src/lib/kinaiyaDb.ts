@@ -23,7 +23,7 @@ export type AssessmentRow = {
   createdAt: string;
 };
 
-export type MaterialRow = { id: string; title: string };
+export type MaterialRow = { id: string; title: string; body: string | null };
 
 export type InterventionSessionRow = {
   id: string;
@@ -52,7 +52,7 @@ type DbStudentProfile = { classId: string; studentId: string; currentLevel: stri
 type DbInterventionSession = { id: string; classId: string; studentId: string; masteryAchieved: boolean | null; createdAt: string; isSynced?: boolean };
 
 type DbState = {
-  version: 1;
+  version: 2;
   teacherClass: TeacherClass;
   students: DbStudent[];
   assessments: DbAssessment[];
@@ -62,9 +62,15 @@ type DbState = {
   interventionSessions: DbInterventionSession[];
 };
 
-const DB_KEY = "kinaiya_mock_db_v2";
+const DB_KEY = "kinaiya_mock_db_v5";
 
 const nowIso = () => new Date().toISOString();
+const seedIso = (daysAgo: number, hoursAgo = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  date.setHours(date.getHours() - hoursAgo);
+  return date.toISOString();
+};
 
 const uuid = () => {
   const c = globalThis.crypto as Crypto | undefined;
@@ -77,31 +83,33 @@ const loadDb = (): DbState => {
     const raw = localStorage.getItem(DB_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DbState;
-      if (parsed && parsed.version === 1) return parsed;
+      if (parsed && parsed.version === 2) return parsed;
     }
   } catch {
+    // Reset to seeded prototype state when stored data is invalid.
   }
 
   const classId = uuid();
   const teacherClass: TeacherClass = {
     id: classId,
     code: generateClassCode(),
-    name: "Grade 3",
+    name: "Grade 6",
     section: "Mabini",
   };
 
   const seedStudents: DbStudent[] = [
-    { id: uuid(), classId, name: "Aira D.", createdAt: nowIso() },
-    { id: uuid(), classId, name: "Jun-Jun B.", createdAt: nowIso() },
-    { id: uuid(), classId, name: "Datu L.", createdAt: nowIso() },
-    { id: uuid(), classId, name: "Jessa Mae R.", createdAt: nowIso() },
-    { id: uuid(), classId, name: "Rico S.", createdAt: nowIso() },
+    { id: uuid(), classId, name: "Mary Grace Dela Cruz", createdAt: nowIso() },
+    { id: uuid(), classId, name: "John Mark Bautista", createdAt: nowIso() },
+    { id: uuid(), classId, name: "Princess Mae Lopez", createdAt: nowIso() },
+    { id: uuid(), classId, name: "Joshua Miguel Santos", createdAt: nowIso() },
+    { id: uuid(), classId, name: "Rica Mae Soriano", createdAt: nowIso() },
   ];
 
   const materials: DbMaterial[] = [
-    { id: uuid(), classId, title: "Short vowel practice", body: null, createdAt: nowIso() },
-    { id: uuid(), classId, title: "Timed re-read (1 min)", body: null, createdAt: nowIso() },
-    { id: uuid(), classId, title: "Extension story: Nature", body: null, createdAt: nowIso() },
+    { id: uuid(), classId, title: "Academic vocabulary context clues", body: null, createdAt: nowIso() },
+    { id: uuid(), classId, title: "Timed reread: Grade 6 fluency", body: null, createdAt: nowIso() },
+    { id: uuid(), classId, title: "Informational text: environment and community", body: null, createdAt: nowIso() },
+    { id: uuid(), classId, title: "Inference drills with short passages", body: null, createdAt: nowIso() },
   ];
 
   const [aira, junjun, datu, jessa, rico] = seedStudents;
@@ -110,92 +118,202 @@ const loadDb = (): DbState => {
       id: uuid(),
       classId,
       studentId: aira.id,
-      wcpm: 62,
-      accuracyRate: 74,
-      comprehensionScore: 46,
+      wcpm: 68,
+      accuracyRate: 86,
+      comprehensionScore: 44,
       level: "Frustrational",
-      gap: "Decoding: long vowel sounds (a, e, i)",
+      gap: "Word Recognition: Decoding multisyllabic academic words",
+      raw: { source: "seed_history" },
+      createdAt: seedIso(18),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: aira.id,
+      wcpm: 76,
+      accuracyRate: 89,
+      comprehensionScore: 52,
+      level: "Frustrational",
+      gap: "Word Recognition: Decoding multisyllabic academic words",
       raw: { source: "seed" },
-      createdAt: nowIso(),
+      createdAt: seedIso(3),
       isSynced: true,
     },
     {
       id: uuid(),
       classId,
       studentId: junjun.id,
-      wcpm: 78,
-      accuracyRate: 91,
-      comprehensionScore: 68,
+      wcpm: 92,
+      accuracyRate: 92,
+      comprehensionScore: 66,
       level: "Instructional",
-      gap: "Phonemic Awareness: Consonant Blends",
+      gap: "Vocabulary: Context clues in informational text",
+      raw: { source: "seed_history" },
+      createdAt: seedIso(16),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: junjun.id,
+      wcpm: 101,
+      accuracyRate: 94,
+      comprehensionScore: 74,
+      level: "Instructional",
+      gap: "Vocabulary: Context clues in informational text",
       raw: { source: "seed" },
-      createdAt: nowIso(),
+      createdAt: seedIso(4),
       isSynced: true,
     },
     {
       id: uuid(),
       classId,
       studentId: datu.id,
-      wcpm: 124,
+      wcpm: 132,
+      accuracyRate: 97,
+      comprehensionScore: 88,
+      level: "Independent",
+      gap: "General reading support",
+      raw: { source: "seed_history" },
+      createdAt: seedIso(15),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: datu.id,
+      wcpm: 141,
       accuracyRate: 98,
-      comprehensionScore: 92,
+      comprehensionScore: 93,
       level: "Independent",
       gap: "General reading support",
       raw: { source: "seed" },
-      createdAt: nowIso(),
+      createdAt: seedIso(2),
       isSynced: true,
     },
     {
       id: uuid(),
       classId,
       studentId: jessa.id,
-      wcpm: 115,
-      accuracyRate: 96,
-      comprehensionScore: 88,
-      level: "Independent",
-      gap: "General reading support",
+      wcpm: 108,
+      accuracyRate: 93,
+      comprehensionScore: 79,
+      level: "Instructional",
+      gap: "Comprehension: Drawing inferences from clues",
+      raw: { source: "seed_history" },
+      createdAt: seedIso(15),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: jessa.id,
+      wcpm: 121,
+      accuracyRate: 95,
+      comprehensionScore: 84,
+      level: "Instructional",
+      gap: "Comprehension: Drawing inferences from clues",
       raw: { source: "seed" },
-      createdAt: nowIso(),
+      createdAt: seedIso(5),
       isSynced: true,
     },
     {
       id: uuid(),
       classId,
       studentId: rico.id,
-      wcpm: 82,
-      accuracyRate: 88,
-      comprehensionScore: 70,
+      wcpm: 118,
+      accuracyRate: 95,
+      comprehensionScore: 82,
+      level: "Instructional",
+      gap: "Fluency: Pacing and Expression",
+      raw: { source: "seed_history" },
+      createdAt: seedIso(14),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: rico.id,
+      wcpm: 112,
+      accuracyRate: 94,
+      comprehensionScore: 76,
       level: "Instructional",
       gap: "Fluency: Pacing and Expression",
       raw: { source: "seed" },
-      createdAt: nowIso(),
+      createdAt: seedIso(1),
       isSynced: true,
     },
   ];
 
   const studentMaterials: DbStudentMaterial[] = [
     { studentId: aira.id, materialId: materials[0].id, createdAt: nowIso() },
-    { studentId: rico.id, materialId: materials[1].id, createdAt: nowIso() },
+    { studentId: junjun.id, materialId: materials[0].id, createdAt: nowIso() },
     { studentId: datu.id, materialId: materials[2].id, createdAt: nowIso() },
+    { studentId: jessa.id, materialId: materials[3].id, createdAt: nowIso() },
+    { studentId: rico.id, materialId: materials[1].id, createdAt: nowIso() },
   ];
 
   const studentProfiles: DbStudentProfile[] = [
-    { classId, studentId: aira.id, currentLevel: "Frustrational", currentGap: assessments[0].gap, updatedAt: nowIso() },
-    { classId, studentId: junjun.id, currentLevel: "Instructional", currentGap: assessments[1].gap, updatedAt: nowIso() },
-    { classId, studentId: datu.id, currentLevel: "Independent", currentGap: assessments[2].gap, updatedAt: nowIso() },
-    { classId, studentId: jessa.id, currentLevel: "Independent", currentGap: assessments[3].gap, updatedAt: nowIso() },
-    { classId, studentId: rico.id, currentLevel: "Instructional", currentGap: assessments[4].gap, updatedAt: nowIso() },
+    { classId, studentId: aira.id, currentLevel: "Frustrational", currentGap: assessments[1].gap, updatedAt: nowIso() },
+    { classId, studentId: junjun.id, currentLevel: "Instructional", currentGap: assessments[3].gap, updatedAt: nowIso() },
+    { classId, studentId: datu.id, currentLevel: "Independent", currentGap: assessments[5].gap, updatedAt: nowIso() },
+    { classId, studentId: jessa.id, currentLevel: "Instructional", currentGap: assessments[7].gap, updatedAt: nowIso() },
+    { classId, studentId: rico.id, currentLevel: "Instructional", currentGap: assessments[9].gap, updatedAt: nowIso() },
+  ];
+
+  const interventionSessions: DbInterventionSession[] = [
+    {
+      id: uuid(),
+      classId,
+      studentId: aira.id,
+      masteryAchieved: false,
+      createdAt: seedIso(7),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: junjun.id,
+      masteryAchieved: false,
+      createdAt: seedIso(6),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: datu.id,
+      masteryAchieved: true,
+      createdAt: seedIso(5),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: jessa.id,
+      masteryAchieved: true,
+      createdAt: seedIso(4),
+      isSynced: true,
+    },
+    {
+      id: uuid(),
+      classId,
+      studentId: rico.id,
+      masteryAchieved: false,
+      createdAt: seedIso(3),
+      isSynced: true,
+    },
   ];
 
   const db: DbState = {
-    version: 1,
+    version: 2,
     teacherClass,
     students: seedStudents,
     assessments,
     materials,
     studentMaterials,
     studentProfiles,
-    interventionSessions: [],
+    interventionSessions,
   };
 
   localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -303,15 +421,26 @@ export const listMaterialsForClass = async (classId: string) => {
   return db.materials
     .filter((m) => m.classId === classId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((m) => ({ id: m.id, title: m.title })) as MaterialRow[];
+    .map((m) => ({ id: m.id, title: m.title, body: m.body ?? null })) as MaterialRow[];
 };
 
-export const createMaterial = async (classId: string, _teacherId: string, title: string) => {
+export const createMaterial = async (
+  classId: string,
+  _teacherId: string,
+  title: string,
+  body?: string | null,
+) => {
   const db = loadDb();
-  const row: DbMaterial = { id: uuid(), classId, title, body: null, createdAt: nowIso() };
+  const row: DbMaterial = {
+    id: uuid(),
+    classId,
+    title,
+    body: body?.trim() ? body.trim() : null,
+    createdAt: nowIso(),
+  };
   db.materials.unshift(row);
   saveDb(db);
-  return { id: row.id, title: row.title } as MaterialRow;
+  return { id: row.id, title: row.title, body: row.body ?? null } as MaterialRow;
 };
 
 export const assignMaterialToStudent = async (studentId: string, materialId: string) => {
@@ -335,9 +464,11 @@ export const listAssignedMaterialsForStudent = async (studentId: string) => {
     .filter((x) => x.studentId === studentId)
     .map((x) => {
       const m = materialById.get(x.materialId);
-      return m ? { materialId: x.materialId, title: m.title } : null;
+      return m
+        ? { materialId: x.materialId, title: m.title, body: m.body ?? null }
+        : null;
     })
-    .filter(Boolean) as Array<{ materialId: string; title: string }>;
+    .filter(Boolean) as Array<{ materialId: string; title: string; body: string | null }>;
 };
 
 export const listAssignedMaterialsByCode = async (code: string, studentId: string) => {

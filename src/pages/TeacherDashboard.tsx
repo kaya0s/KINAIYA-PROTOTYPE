@@ -53,6 +53,14 @@ import {
 } from "@/lib/kinaiyaDb";
 import { enqueueSession } from "@/lib/offlineQueue";
 import type { TeacherSummaryResponse } from "@/lib/kinaiyaApi";
+import {
+  buildTeacherSummary,
+  CLASS_SECTION,
+  GRADE_BAND,
+  getStandardCode,
+  getStandardDetail,
+  TARGETS,
+} from "@/lib/demoModel";
 
 type Student = {
   id: string;
@@ -80,37 +88,7 @@ const levelColor = (level: string) => {
   return "text-kinaiya-red bg-kinaiya-red-light";
 };
 
-const getMatatagCode = (gap?: string | null): string => {
-  if (!gap) return "MATATAG G6.GEN";
-  const g = gap.toLowerCase();
-  if (g.includes("vocabulary") || g.includes("context clue"))
-    return "MATATAG G6.VOC";
-  if (
-    g.includes("main idea") ||
-    g.includes("inference") ||
-    g.includes("comprehension")
-  )
-    return "MATATAG G6.COMP";
-  if (
-    g.includes("fluency") ||
-    g.includes("oral reading") ||
-    g.includes("expression")
-  )
-    return "MATATAG G6.FLU";
-  if (
-    g.includes("decoding") ||
-    g.includes("multi-syllabic") ||
-    g.includes("vowel pattern")
-  )
-    return "MATATAG G6.WR";
-  if (
-    g.includes("phonics") ||
-    g.includes("vowel team") ||
-    g.includes("consonant")
-  )
-    return "MATATAG G6.PHO";
-  return "MATATAG G6.GEN";
-};
+const getMatatagCode = (gap?: string | null): string => getStandardCode(gap);
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -119,8 +97,9 @@ const TeacherDashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showAddReading, setShowAddReading] = useState(false);
   const [newReadingTitle, setNewReadingTitle] = useState("");
+  const [newReadingBody, setNewReadingBody] = useState("");
   const [materials, setMaterials] = useState<
-    Array<{ id: string; title: string }>
+    Array<{ id: string; title: string; body: string | null }>
   >([]);
   const [materialMap, setMaterialMap] = useState<Map<string, string>>(
     new Map(),
@@ -135,6 +114,7 @@ const TeacherDashboard = () => {
   const [summary, setSummary] = useState<TeacherSummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [standardModalVisible, setStandardModalVisible] = useState(false);
   const [selectedStandard, setSelectedStandard] = useState<{
@@ -303,51 +283,7 @@ const TeacherDashboard = () => {
       if (nextStudents.length === 0) {
         setSummary(null);
       } else {
-        const gaps = nextStudents
-          .map((s) => (s.gap ?? "").trim())
-          .filter(Boolean);
-        const counts = new Map<string, number>();
-        for (const g of gaps) counts.set(g, (counts.get(g) ?? 0) + 1);
-        const mostCommonGap =
-          Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
-          "General reading support";
-
-        const urgent = nextStudents
-          .filter((s) => s.urgent)
-          .slice(0, 5)
-          .map((s) => ({
-            student_name: s.name,
-            reason: `${s.level} level or low score flagged`,
-          }));
-
-        const STREAMS = {
-          "MATATAG G6.FLU":
-            "MATATAG Grade 6 Oral Reading Fluency — Phil-IRI standard: Fast readers achieve 190+ WPM, Average 151–189 WPM. Target WCPM for intervention: 140. Based on DepEd DO 14, s. 2018.",
-        };
-
-        const summary: TeacherSummaryResponse = {
-          class_health: {
-            frustrational_count: nextStudents.filter(
-              (s) => s.level === "Frustrational",
-            ).length,
-            instructional_count: nextStudents.filter(
-              (s) => s.level === "Instructional",
-            ).length,
-            independent_count: nextStudents.filter(
-              (s) => s.level === "Independent",
-            ).length,
-            total_students: nextStudents.length,
-          },
-          urgent_attention: urgent,
-          most_common_gap:
-            "Comprehension: Identifying Main Idea and Key Details (MATATAG G6.COMP)",
-          group_activity_suggestion:
-            "Main Idea Mapping: Use the 'Bukidnon Highlands' passage for a 15-minute group activity where students identify the main idea and three supporting details — a core MATATAG Grade 6 comprehension skill.",
-          summary_text:
-            "Based on the latest diagnostics, most students are below the MATATAG Grade 6 Independent comprehension threshold of 90% (Phil-IRI DO 14, s. 2018). Group instruction focused on main idea identification and key detail support is recommended before the next individual assessment.",
-        };
-
-        setSummary(summary);
+        setSummary(buildTeacherSummary(nextStudents));
       }
     } catch (e) {
       setSummary(null);
@@ -356,6 +292,20 @@ const TeacherDashboard = () => {
       );
     } finally {
       setSummaryLoading(false);
+    }
+
+    try {
+      const allAssessments = await listAssessmentsForClass(id, false);
+      const syncedAssessments = await listAssessmentsForClass(id, true);
+      const allSessions = await listInterventionSessionsForClass(id, false);
+      const syncedSessions = await listInterventionSessionsForClass(id, true);
+      setPendingSyncCount(
+        allAssessments.length -
+          syncedAssessments.length +
+          (allSessions.length - syncedSessions.length),
+      );
+    } catch {
+      setPendingSyncCount(0);
     }
   };
 
@@ -476,8 +426,14 @@ const TeacherDashboard = () => {
     const run = async () => {
       const existingMaterialId = materialMap.get(cleaned.toLowerCase());
       const materialRow = existingMaterialId
-        ? { id: existingMaterialId, title: cleaned }
-        : await createMaterial(classId, teacherId, cleaned);
+        ? {
+            id: existingMaterialId,
+            title: cleaned,
+            body:
+              materials.find((item) => item.id === existingMaterialId)?.body ??
+              null,
+          }
+        : await createMaterial(classId, teacherId, cleaned, newReadingBody);
 
       if (!existingMaterialId) {
         setMaterials((prev) => [materialRow, ...prev]);
@@ -503,6 +459,7 @@ const TeacherDashboard = () => {
         prev ? { ...prev, supplementary: nextTitles } : null,
       );
       setNewReadingTitle("");
+      setNewReadingBody("");
       setShowAddReading(false);
     };
 
@@ -578,7 +535,7 @@ const TeacherDashboard = () => {
             Teacher Dashboard
           </h1>
           <p className="text-xs text-muted-foreground">
-            Grade 3 — Section Mabini
+            {GRADE_BAND} - Section {CLASS_SECTION}
           </p>
         </div>
         <button
@@ -589,6 +546,9 @@ const TeacherDashboard = () => {
           <LogOut className="w-5 h-5 text-foreground" />
         </button>
       </div>
+      <p className="text-[11px] text-muted-foreground mb-3">
+        Demo class context: {GRADE_BAND}, Section {CLASS_SECTION}
+      </p>
 
       {/* Sync Handshake Notification/Button */}
       <motion.div
@@ -618,6 +578,11 @@ const TeacherDashboard = () => {
           </div>
           <ChevronRight className="w-4 h-4 text-kinaiya-blue/40 group-hover:translate-x-0.5 transition-transform" />
         </button>
+        <p className="text-[11px] text-muted-foreground mt-2 px-1">
+          {pendingSyncCount > 0
+            ? `${pendingSyncCount} unsynced learner records are waiting for the next handshake.`
+            : "No pending learner records. Teacher dashboard is up to date."}
+        </p>
       </motion.div>
 
       {/* Handshake Overlay Animation */}
@@ -1046,14 +1011,14 @@ const TeacherDashboard = () => {
                   <button
                     onClick={() => {
                       setSelectedStandard({
-                        code: "MATATAG G6.COMP",
+                        code: getStandardCode(summary.most_common_gap),
                         desc: "MATATAG Grade 6 Comprehension: Identifying Main Idea and Key Details — Students identify the main idea and supporting details of grade-level informational and literary texts. (Phil-IRI Independent: 90% and above | DO 14, s. 2018)",
                       });
                       setStandardModalVisible(true);
                     }}
                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-kinaiya-blue/10 text-kinaiya-blue text-[8px] font-bold hover:bg-kinaiya-blue/20 transition-colors"
                   >
-                    G6.COMP
+                    {getStandardCode(summary.most_common_gap).replace("MATATAG ", "")}
                   </button>
                 </div>
               </div>
@@ -1294,16 +1259,16 @@ const TeacherDashboard = () => {
               {/* Diagnostic Results */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {[
-                  { label: "WPM", value: selectedStudent.wpm, target: 140 },
+                  { label: "WPM", value: selectedStudent.wpm, target: TARGETS.wcpm },
                   {
                     label: "Accuracy",
                     value: `${selectedStudent.accuracy}%`,
-                    target: 97,
+                    target: TARGETS.accuracy,
                   },
                   {
                     label: "Comprehension",
                     value: `${selectedStudent.comprehension}%`,
-                    target: 90,
+                    target: TARGETS.comprehension,
                   },
                 ].map((m) => (
                   <div
@@ -1342,8 +1307,8 @@ const TeacherDashboard = () => {
                       setSelectedStandard({
                         code:
                           selectedStudent.level === "Frustrational"
-                            ? "MATATAG G6.WR"
-                            : "MATATAG G6.FLU",
+                            ? getStandardCode("decoding")
+                            : getStandardCode("fluency"),
                         desc:
                           selectedStudent.level === "Frustrational"
                             ? "MATATAG Grade 6 Word Recognition: Decoding multi-syllabic and content-area words accurately. (Phil-IRI Independent: 97–100% word recognition | DO 14, s. 2018)"
@@ -1355,8 +1320,8 @@ const TeacherDashboard = () => {
                   >
                     <BookOpen className="w-2.5 h-2.5" />
                     {selectedStudent.level === "Frustrational"
-                      ? "MATATAG G6.WR"
-                      : "MATATAG G6.FLU"}
+                      ? getStandardCode("decoding")
+                      : getStandardCode("fluency")}
                     <ExternalLink className="w-2.5 h-2.5" />
                   </button>
                 </div>
@@ -1428,11 +1393,17 @@ const TeacherDashboard = () => {
                         onClick={() => addSupplementary(newReadingTitle)}
                         disabled={!newReadingTitle.trim()}
                         className="px-3 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center gap-2 disabled:opacity-60 disabled:pointer-events-none"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add
-                      </button>
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add
+                        </button>
                     </div>
+                    <textarea
+                      value={newReadingBody}
+                      onChange={(e) => setNewReadingBody(e.target.value)}
+                      placeholder="Optional excerpt or teacher note. Example: Read the first two paragraphs, then retell in Bisaya."
+                      className="mt-2 w-full min-h-24 px-3 py-2 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
 
                     {materials.filter(
                       (m) => !selectedStudent.supplementary.includes(m.title),
@@ -1463,8 +1434,8 @@ const TeacherDashboard = () => {
                     )}
 
                     <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-                      Materials are saved to Supabase and can be assigned to
-                      multiple students.
+                      Materials are saved locally in this prototype and can be
+                      assigned to multiple students with the same excerpt.
                     </p>
                   </motion.div>
                 )}
@@ -1560,3 +1531,4 @@ const TeacherDashboard = () => {
 };
 
 export default TeacherDashboard;
+

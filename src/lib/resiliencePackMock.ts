@@ -5,6 +5,23 @@ const clamp = (n: number, min: number, max: number) =>
 
 const pick = <T>(arr: T[], idx: number) => arr[idx % arr.length];
 
+const buildQuestion = (
+  q: string,
+  correctChoice: string,
+  distractors: [string, string, string],
+  offset: number,
+) => {
+  const choices = [correctChoice, ...distractors];
+  const normalizedOffset = ((offset % choices.length) + choices.length) % choices.length;
+  const rotated = choices.map((_, index) => choices[(index - normalizedOffset + choices.length) % choices.length]);
+
+  return {
+    q,
+    choices: rotated,
+    answer: rotated.indexOf(correctChoice),
+  };
+};
+
 const BUKIDNON_STORIES = [
   {
     day: 1,
@@ -138,42 +155,35 @@ const buildItems = (
     if (level === "Frustrational") {
       // Shorter, simpler sentences
       passage = passage.split(". ").slice(0, 2).join(". ") + ".";
-    } else if (level === "Instructional") {
-      // Mix of simple and complex
-      passage = passage;
     }
 
     const questions = [
-      {
-        q: `What is the main topic of today's story?`,
-        choices: [
-          "Nature and community in Bukidnon",
-          "A robot",
-          "A city",
-          "A sport",
-        ],
-        answer: 0,
-      },
-      {
-        q: `What does the story teach us about people and the environment?`,
-        choices: [
-          "We should care for and protect the environment",
+      buildQuestion(
+        `What is the main topic of today's story?`,
+        "Nature and community in Bukidnon",
+        ["A robot", "A city", "A sport"],
+        d,
+      ),
+      buildQuestion(
+        `What does the story teach us about people and the environment?`,
+        "We should care for and protect the environment",
+        [
           "We should cut down all trees",
           "Nature is not important",
           "Only scientists can protect nature",
         ],
-        answer: 0,
-      },
-      {
-        q: `What is a good reading habit to use when you meet a difficult word?`,
-        choices: [
-          "Use context clues from the surrounding sentences",
+        d + 1,
+      ),
+      buildQuestion(
+        `What is a good reading habit to use when you meet a difficult word?`,
+        "Use context clues from the surrounding sentences",
+        [
           "Skip the word and keep reading",
           "Stop reading immediately",
           "Guess randomly",
         ],
-        answer: 0,
-      },
+        d + 2,
+      ),
     ];
 
     items.push({

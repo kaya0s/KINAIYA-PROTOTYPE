@@ -18,6 +18,11 @@ import heroImg from "@/assets/hero-illustration.png";
 import type { AnalyzeResponse, ResiliencePackResponse } from "@/lib/kinaiyaApi";
 import { getStudentFriendlyLevel } from "@/lib/kinaiyaApi";
 import {
+  getMotherTongueBridge,
+  normalizeLevel,
+  TARGETS,
+} from "@/lib/demoModel";
+import {
   getStudentProfileByCode,
   listAssignedMaterialsByCode,
 } from "@/lib/kinaiyaDb";
@@ -25,7 +30,7 @@ import { createResiliencePackMock } from "@/lib/resiliencePackMock";
 
 const STUDENT_SESSION_KEY = "kinaiya_student_session_v1";
 const LAST_ANALYSIS_KEY = "kinaiya_last_analysis_v1";
-const RESILIENCE_PACK_KEY = "kinaiya_resilience_pack_v1";
+const RESILIENCE_PACK_KEY = "kinaiya_resilience_pack_v2";
 
 const StudentHome = () => {
   const navigate = useNavigate();
@@ -33,7 +38,7 @@ const StudentHome = () => {
   const [stormAlertActive, setStormAlertActive] = useState(false);
   const [packError, setPackError] = useState<string | null>(null);
   const [assignedMaterials, setAssignedMaterials] = useState<
-    Array<{ title: string }>
+    Array<{ title: string; body: string | null }>
   >([]);
   const [online, setOnline] = useState<boolean>(() => navigator.onLine);
   const [profileLevel, setProfileLevel] = useState<string | null>(null);
@@ -116,6 +121,10 @@ const StudentHome = () => {
   }, []);
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  const bridge = getMotherTongueBridge(
+    analysis?.gap ?? null,
+    normalizeLevel(profileLevel ?? analysis?.level),
+  );
 
   // Proactive Resilience Logic: Two-step sync
   useEffect(() => {
@@ -123,14 +132,15 @@ const StudentHome = () => {
 
     if (stormAlertActive) {
       if (!downloadingPack && !showSyncSuccess) {
+        setPackError(null);
         setDownloadingPack(true);
         t = window.setTimeout(() => {
           try {
             const pack = createResiliencePackMock({
               days: 14,
-              level: (profileLevel ||
-                analysis?.level ||
-                "Instructional") as "Instructional",
+              level: normalizeLevel(
+                profileLevel || analysis?.level || "Instructional",
+              ),
               gap: analysis?.gap || "General reading support",
             });
             localStorage.setItem(
@@ -146,6 +156,11 @@ const StudentHome = () => {
               setShowSyncSuccess(false);
             }, 4000);
           } catch (e) {
+            setPackError(
+              e instanceof Error
+                ? e.message
+                : "Could not prepare the offline resilience pack.",
+            );
             setDownloadingPack(false);
           }
         }, 1500);
@@ -158,7 +173,7 @@ const StudentHome = () => {
     return () => {
       if (t) window.clearTimeout(t);
     };
-  }, [stormAlertActive, profileLevel, analysis]);
+  }, [analysis, profileLevel, stormAlertActive]);
 
   const features = [
     {
@@ -232,13 +247,13 @@ const StudentHome = () => {
         transition={{ delay: 0.05 }}
         className="mb-5 relative"
       >
-        <WeatherWidget isAlert={stormAlertActive} />
+        <WeatherWidget isAlert={stormAlertActive} city="Malaybalay, Bukidnon" />
 
         {/* Simulator Toggle (Float on top, for demo purposes) */}
         <button
           onClick={() => setStormAlertActive(!stormAlertActive)}
           className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/20 transition-colors group"
-          title="Simulate PAGASA Alert"
+          title="Simulate climate Alert"
         >
           <CloudLightning
             className={`w-3 h-3 ${stormAlertActive ? "text-kinaiya-red" : "text-muted-foreground"}`}
@@ -344,6 +359,12 @@ const StudentHome = () => {
                   : "Take a diagnostic to see your progress"}
               </span>
             </div>
+            {analysis && (
+              <p className="text-[11px] mt-2 opacity-80">
+                Targets: {TARGETS.wcpm} WCPM, {TARGETS.accuracy}% accuracy,{" "}
+                {TARGETS.comprehension}% comprehension
+              </p>
+            )}
           </div>
           <div className="w-16 h-16 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
             <BookOpen className="w-8 h-8" />
@@ -358,6 +379,28 @@ const StudentHome = () => {
             : "Complete a diagnostic to personalize your path"}
         </p>
       </motion.div>
+
+      {analysis && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14 }}
+          className="rounded-2xl bg-kinaiya-purple-light border border-kinaiya-purple/20 p-4 mb-5"
+        >
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
+            Mother-Tongue Bridge
+          </p>
+          <p className="text-sm font-bold text-foreground mt-1">
+            {bridge.language} support for your current gap
+          </p>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+            {bridge.language === "Bisaya" ? bridge.bisaya : bridge.tagalog}
+          </p>
+          <p className="text-[11px] text-kinaiya-purple font-bold mt-2">
+            Coach cue: {bridge.cue}
+          </p>
+        </motion.div>
+      )}
 
       {!online && (
         <div className="rounded-2xl bg-muted border border-border p-3 mb-5">
@@ -418,7 +461,14 @@ const StudentHome = () => {
                 className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
               >
                 <BookOpen className="w-4 h-4 text-kinaiya-blue" />
-                <span className="text-sm text-foreground">{m.title}</span>
+                <div className="min-w-0">
+                  <span className="text-sm text-foreground block">{m.title}</span>
+                  {m.body && (
+                    <span className="text-[11px] text-muted-foreground line-clamp-2 block mt-0.5">
+                      {m.body}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

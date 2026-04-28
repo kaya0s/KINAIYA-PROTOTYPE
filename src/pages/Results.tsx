@@ -19,6 +19,13 @@ import { insertAssessment } from "@/lib/kinaiyaDb";
 import type { AnalyzeResponse } from "@/lib/kinaiyaApi";
 import { getStudentFriendlyLevel } from "@/lib/kinaiyaApi";
 import { enqueueAssessment } from "@/lib/offlineQueue";
+import {
+  getMotherTongueBridge,
+  getStandardCode,
+  getStandardDetail as getGradeStandardDetail,
+  normalizeLevel,
+  TARGETS,
+} from "@/lib/demoModel";
 
 const STUDENT_SESSION_KEY = "kinaiya_student_session_v1";
 const LAST_ANALYSIS_KEY = "kinaiya_last_analysis_v1";
@@ -172,24 +179,24 @@ const Results = () => {
     {
       label: "Words per Minute",
       value: `${wpm}`,
-      target: "140",
-      pct: Math.min(100, Math.round((wpm / 140) * 100)),
+      target: `${TARGETS.wcpm}`,
+      pct: Math.min(100, Math.round((wpm / TARGETS.wcpm) * 100)),
       icon: TrendingUp,
       color: "text-kinaiya-blue",
     },
     {
       label: "Accuracy",
       value: `${accuracy}%`,
-      target: "97%",
-      pct: Math.min(100, Math.round((accuracy / 97) * 100)),
+      target: `${TARGETS.accuracy}%`,
+      pct: Math.min(100, Math.round((accuracy / TARGETS.accuracy) * 100)),
       icon: Target,
       color: "text-kinaiya-green",
     },
     {
       label: "Comprehension",
       value: `${comprehension}%`,
-      target: "90%",
-      pct: Math.min(100, Math.round((comprehension / 90) * 100)),
+      target: `${TARGETS.comprehension}%`,
+      pct: Math.min(100, Math.round((comprehension / TARGETS.comprehension) * 100)),
       icon: Brain,
       color: "text-kinaiya-purple",
     },
@@ -261,6 +268,12 @@ const Results = () => {
       text: "text-kinaiya-green",
     },
   };
+  const standardCode = getStandardCode(analysis?.gap);
+  const bridge = getMotherTongueBridge(
+    analysis?.gap ?? null,
+    normalizeLevel(readingLevel),
+  );
+  const gradeStandardDetail = getGradeStandardDetail(standardCode);
 
   return (
     <div className="mobile-container bg-background px-5 pb-8">
@@ -496,6 +509,59 @@ const Results = () => {
             );
           })}
         </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="rounded-2xl bg-card border border-border p-4 mb-6"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">
+              Mapped Standard
+            </p>
+            <p className="text-sm font-bold text-foreground mt-1">{standardCode}</p>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedStandard({
+                code: standardCode,
+                desc: gradeStandardDetail,
+              });
+              setStandardModalVisible(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-kinaiya-blue-light text-kinaiya-blue text-xs font-bold border border-kinaiya-blue/20"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            View Detail
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+          {gradeStandardDetail}
+        </p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.48 }}
+        className="rounded-2xl bg-kinaiya-purple-light border border-kinaiya-purple/20 p-4 mb-6"
+      >
+        <h3 className="font-display font-bold text-foreground text-sm flex items-center gap-2">
+          <Brain className="w-4 h-4 text-kinaiya-purple" />
+          Mother-Tongue Bridge
+        </h3>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground font-black mt-3">
+          {bridge.language} support
+        </p>
+        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+          {bridge.language === "Bisaya" ? bridge.bisaya : bridge.tagalog}
+        </p>
+        <p className="text-[11px] text-kinaiya-purple font-bold mt-2">
+          Coach cue: {bridge.cue}
+        </p>
       </motion.div>
 
       {/* Recommendation */}

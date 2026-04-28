@@ -6,7 +6,7 @@ import type { ResiliencePackResponse } from "@/lib/kinaiyaApi";
 import { getStudentFriendlyLevel } from "@/lib/kinaiyaApi";
 import goodJobImg from "@/assets/good-job.png";
 
-const RESILIENCE_PACK_KEY = "kinaiya_resilience_pack_v1";
+const RESILIENCE_PACK_KEY = "kinaiya_resilience_pack_v2";
 const MASTERY_KEY = "kinaiya_offline_mastery_v1";
 
 const getMetricTone = (value: number) => {
@@ -69,6 +69,7 @@ const ResiliencePack = () => {
   const [readingMetrics, setReadingMetrics] = useState<{ wcpm: number; accuracy: number; comprehensionScore: number } | null>(null);
   const [timer, setTimer] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [selectedChoices, setSelectedChoices] = useState<number[]>([]);
   const dayButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
   const current = pack?.items?.find((i) => i.day === activeDay) ?? null;
@@ -81,12 +82,16 @@ const ResiliencePack = () => {
     setTimer(0);
     setCurrentQ(0);
     setMasteryFeedback(null);
+    setReadingMetrics(null);
+    setSelectedChoices([]);
+    setShowCelebration(false);
+    setShowPackComplete(false);
   }, [activeDay]);
 
   useEffect(() => {
     const nextAvailableDay = getNextAvailableDay(pack, masteredDays);
     if (nextAvailableDay == null) return;
-    if (activeDay == null || masteredDays.includes(activeDay)) {
+    if (activeDay == null) {
       setActiveDay(nextAvailableDay);
     }
   }, [activeDay, masteredDays, pack]);
@@ -115,11 +120,23 @@ const ResiliencePack = () => {
 
   const handleFinishReading = () => {
     setIsRecording(false);
+    if (current) {
+      setSelectedChoices(current.questions.map((question) => question.answer));
+    }
     setStage("quiz");
+  };
+
+  const handleChoiceSelect = (choiceIdx: number) => {
+    setSelectedChoices((prev) => {
+      const next = [...prev];
+      next[currentQ] = choiceIdx;
+      return next;
+    });
   };
 
   const handleNextQuestion = () => {
     if (!current) return;
+    if (selectedChoices[currentQ] == null) return;
     if (currentQ < current.questions.length - 1) {
       setCurrentQ(currentQ + 1);
     } else {
@@ -131,20 +148,29 @@ const ResiliencePack = () => {
     if (!current) return;
     setStage("analyzing");
 
-    // Fast simulation for demo
     setTimeout(() => {
-      const simulatedAccuracy = 98; // Always good result for simulation
-      const simulatedWcpm = 115;
-      const compScore = 100;
+      const correctCount = current.questions.filter(
+        (question, index) => selectedChoices[index] === question.answer,
+      ).length;
+      const compScore = Math.round(
+        (correctCount / Math.max(1, current.questions.length)) * 100,
+      );
+      const simulatedWcpm = Math.max(55, Math.min(130, 82 + timer * 2));
+      const simulatedAccuracy = Math.max(
+        68,
+        Math.min(99, 70 + correctCount * 10 + Math.min(15, timer)),
+      );
+      const mastered =
+        compScore >= 67 && simulatedAccuracy >= 85 && simulatedWcpm >= 75;
 
       setReadingMetrics({
         wcpm: simulatedWcpm,
         accuracy: simulatedAccuracy,
-        comprehensionScore: compScore
+        comprehensionScore: compScore,
       });
 
-      setMasteryFeedback("success");
-      if (!masteredDays.includes(current.day)) {
+      setMasteryFeedback(mastered ? "success" : "fail");
+      if (mastered && !masteredDays.includes(current.day)) {
         const next = [...masteredDays, current.day];
         setMasteredDays(next);
         localStorage.setItem(MASTERY_KEY, JSON.stringify(next));
@@ -395,20 +421,33 @@ const ResiliencePack = () => {
                             <p className="text-base font-bold text-foreground leading-tight">{current.questions[currentQ].q}</p>
                             <div className="grid grid-cols-1 gap-2">
                               {current.questions[currentQ].choices.map((c, choiceIdx) => {
-                                const isCorrect = choiceIdx === current.questions[currentQ].answer;
+                                const isSelected = selectedChoices[currentQ] === choiceIdx;
                                 return (
                                   <button
                                     key={choiceIdx}
-                                    onClick={handleNextQuestion}
-                                    className={`px-4 py-4 rounded-xl border text-left text-sm transition-all flex items-center justify-between ${isCorrect ? "border-primary bg-primary/5 font-bold" : "border-border bg-card"}`}
+                                    onClick={() => handleChoiceSelect(choiceIdx)}
+                                    className={`px-4 py-4 rounded-xl border text-left text-sm transition-all flex items-center justify-between ${
+                                      isSelected
+                                        ? "border-primary bg-primary/5 font-bold"
+                                        : "border-border bg-card"
+                                    }`}
                                   >
                                     <span>{c}</span>
-                                    {isCorrect && <div className="w-3 h-3 rounded-full bg-primary" />}
+                                    {isSelected && <div className="w-3 h-3 rounded-full bg-primary" />}
                                   </button>
                                 );
                               })}
                             </div>
                           </div>
+                          <button
+                            onClick={handleNextQuestion}
+                            disabled={selectedChoices[currentQ] == null}
+                            className="w-full py-3 rounded-2xl bg-gradient-kinaiya text-primary-foreground font-display font-bold text-sm shadow-kinaiya disabled:opacity-60 disabled:pointer-events-none"
+                          >
+                            {currentQ < current.questions.length - 1
+                              ? "Next Question"
+                              : "Check Mastery"}
+                          </button>
                         </motion.div>
                       </AnimatePresence>
                     </div>
